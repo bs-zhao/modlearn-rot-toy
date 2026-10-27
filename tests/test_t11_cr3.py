@@ -52,7 +52,9 @@ def test():
     sig=evaluate("T11-sig",torch.tensor(X),torch.tensor(theta)).detach().numpy()
     assert np.allclose(sig,expit(expect),atol=1e-12,rtol=1e-12)
     inverse=evaluate("T11-sig",torch.tensor(X),torch.tensor(theta),"inverse").detach().numpy()
-    assert np.allclose(inverse,expect,atol=1e-12,rtol=1e-12)
+    # Near sigmoid saturation (~15.6 logit), inverse-logit has
+    # unavoidable floating-point cancellation, unlike the raw eta check.
+    assert np.allclose(inverse,expect,atol=1e-8,rtol=1e-8),(inverse,expect)
     assert (got>=-ETA_ABS_BOUND).all() and (got<=ETA_ABS_BOUND).all()
 
     # Structural zero 1: no loss outcomes -> lambda does not enter eta.
