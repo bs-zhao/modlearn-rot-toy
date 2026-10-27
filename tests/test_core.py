@@ -84,7 +84,6 @@ def test():
     for name,model in MODELS.items():
         assert len(model.eta_bounds)==2
         for code in TRANSFORMS:
-            from rottoy.models import get_variant
             bounds=get_variant(name+"-"+code).y_bounds
             assert bounds==transformed_bounds(model.eta_bounds,code)
             xv=torch.rand((128,model.dx),dtype=torch.float64)
