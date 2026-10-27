@@ -110,7 +110,8 @@ outputs/toy_rotation/T8/id/raw/
     metrics_by_angle.csv
     rotation_matrices.npz
   joint_search/
-    joint_candidates.csv          # 多个完整四维旋转的同组指标
+    joint_candidates.csv         # 多个完整四维旋转的同组指标
+    joint_candidates_heatmap.png # 横轴不同六维候选旋转，纵轴 M 指标
     joint_search_summary.csv     # 每项指标在完整自由度空间发现的最小值
     best_rotations.npz           # 每项最优的六角度及 4x4 矩阵
     best_rotation_M018.png       # 按指标编号生成的系数矩阵热力图
