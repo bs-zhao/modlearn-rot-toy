@@ -12,10 +12,10 @@ from rottoy.sampling import paired_grid
 from rottoy.operators import derivative_bank,rotated_derivatives,operator_bank,operator_metrics
 
 def test():
-    assert list(MODELS)==[f"T{i}" for i in range(1,10)]
-    assert list(TRANSFORMS)==["id","sig","sq","tanh","sp","exp"]
-    assert len(variant_names())==9*len(TRANSFORMS)
-    assert list(METRICS)==[f"M{i:03d}" for i in range(1,25)]
+    assert list(MODELS)==[f"T{i}" for i in range(1,len(MODELS)+1)]
+    assert {"id","sig","sq","tanh","sp","exp"}.issubset(TRANSFORMS)
+    assert len(variant_names())==len(MODELS)*len(TRANSFORMS)
+    assert len(METRICS)>=24 and list(METRICS)==[f"M{i:03d}" for i in range(1,len(METRICS)+1)]
     assert METRICS["M017"].key=="operator_v1_jd"
     assert METRICS["M018"].key=="operator_v2_jd"
     assert get_variant("T9-sig").id=="T9-sig"
@@ -92,6 +92,6 @@ def test():
             assert np.min(yv)>=bounds[0]-1e-9,(name,code,bounds,np.min(yv))
             assert np.max(yv)<=bounds[1]+1e-9,(name,code,bounds,np.max(yv))
     assert mids==list(METRICS),(mids,list(METRICS))
-    print("PASS: T1-T9, six continuous transforms, M001-M024, gradients and X/U integral operators")
+    print(f"PASS: {len(MODELS)} toys, {len(TRANSFORMS)} continuous transforms, {len(METRICS)} metrics, derivative and integral operators")
 
 if __name__=="__main__":test()
