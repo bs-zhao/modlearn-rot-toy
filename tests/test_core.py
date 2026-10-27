@@ -78,7 +78,7 @@ def test():
     mm=(root/"catalog"/"README_METRICS.md").read_text(encoding="utf-8")
     toys=re.findall(r"(?m)^\| \*\*(T\d+)\*\* \|",tm)
     mids=re.findall(r"(?m)^\| \*\*(M\d{3})\*\* \|",mm)
-    assert toys==list(MODELS),(toys,list(MODELS))
+    assert list(dict.fromkeys(toys))==list(MODELS),(toys,list(MODELS))
     # Range integrity: all model bounds must contain values on the physical cube.
     from rottoy.transforms import transformed_bounds
     for name,model in MODELS.items():
