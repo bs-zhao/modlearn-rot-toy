@@ -17,8 +17,12 @@ gamma [.02,.999], tau [.5,4]. The toy maps each u in [0,1] affinely
 to its corresponding physical interval. This is not original CR3's
 500-item fixed stimulus design nor its beta/gamma/truncated-normal priors.
 
-The base output is a *continuous logit*. Use T11-sig for a continuous
-sigmoid output, without any Bernoulli choice sampling.
+The base output eta is the CR3 logit. T11-id returns eta directly
+(strips ONLY the last outer sigmoid from original CR3 P(A)=sigmoid(eta)).
+T11-sig EXACTLY restores original CR3's deterministic P(A) function.
+T11-sq/tanh/sp/exp each apply their transform to eta, NOT to sigmoid(eta).
+The sigmoid INSIDE probability_weight(p,gamma) is always retained.
+This continuous toy never samples a Bernoulli outcome.
 """
 import torch
 from ..models import register_model

@@ -145,6 +145,28 @@ $$
 
 `T11-sig` 的连续响应为 $Y=\sigma(\eta_{11})\in[\sigma(-B),\sigma(B)]$。该 Toy **不生成 Bernoulli choice、被试或试次**，六种输出变换以及所有 M 指标均共用同一个接口。
 
+
+**原模型与六种后缀的一一对应（避免重复套 sigmoid）：**
+
+原 CR3 的 *完整选择概率函数* 是
+$P_{\mathrm{CR3}}(A\mid X,\theta)=\sigma(\eta_{11}(X,\theta)).$
+
+因此 **`T11-sig` 就是原 CR3 的完整确定性概率映射**；**`T11-id` 是只去掉原 CR3 最外层 sigmoid 后的 logit**。注意：价值函数内部的 $w(p;\gamma)=\sigma(\gamma\operatorname{logit}p)$ **必须保留**，并未去掉全部 sigmoid。
+
+其余后缀也**全部直接作用于同一个 $\eta_{11}$**，而非再套到已 sigmoid 的概率之上：
+
+| 版本 | 连续函数 $Y(X,\theta)$ | 相对于原 CR3 |
+|---|---|---|
+| `T11-id` | $\eta_{11}$ | 只去掉最外层 sigmoid |
+| `T11-sig` | $\sigma(\eta_{11})$ | **原 CR3 的完整输出公式（不抽样）** |
+| `T11-sq` | $\eta_{11}^2$ | 以平方替代外层 sigmoid |
+| `T11-tanh` | $\tanh(\eta_{11})$ | 以 tanh 替代外层 sigmoid |
+| `T11-sp` | $\log(1+e^{\eta_{11}})$ | 以 softplus 替代外层 sigmoid |
+| `T11-exp` | $e^{\eta_{11}}$ | 以 exp 替代外层 sigmoid |
+
+这只是统一 Toy **函数版本**约定，不能把 `T11-sq` 理解成 $[\sigma(\eta_{11})]^2$，也不能把 `T11-sig` 理解成 $\sigma(\sigma(\eta_{11}))$。原 CR3 随机抽取 Bernoulli choice 的步骤并不属于这个连续函数测试台。
+
+
 ## 3. 每个 toy 的六种 $Y$ 理论取值范围
 
 令 $S(t)=\sigma(t)$、$Q(t)=\tanh(t)$、$P(t)=\log(1+e^t)$，以及上面定义的 $A=2\sqrt3+3\sqrt5/2$ 和 $B=24\cdot2^{0.999}$。因为 $S,Q,P,\exp$ 都严格单调，所以它们的输出边界直接由 $\eta$ 的边界映射得到。平方版本在跨越零点时要特别处理。
