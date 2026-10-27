@@ -25,6 +25,28 @@ def _evaluate(R,selected,backend,bank,operator,x_nodes,cfg):
         sweep_radius=cfg.sweep_radius,rectangle_step=cfg.rectangle_step,
         analysis_scale=cfg.analysis_scale)
 
+def _candidate_heatmap(scores,selected,path,title):
+    """Rows are M metrics, columns are independent full SO(K) candidates.
+
+    Candidate 0 is identity, others are independently sampled six-angle
+    rotations for T8; colors are normalized separately within each metric.
+    """
+    matrix=np.asarray([[row[mid] for row in scores] for mid in selected],dtype=float)
+    low=np.min(matrix,axis=1,keepdims=True)
+    span=np.ptp(matrix,axis=1,keepdims=True)
+    normalized=np.divide(matrix-low,span,out=np.full_like(matrix,.5),
+                         where=span>1e-12)
+    fig,ax=plt.subplots(figsize=(max(8,len(scores)*.13+3),
+                                max(3.5,len(selected)*.38+2)),layout="constrained")
+    im=ax.imshow(normalized,origin="upper",aspect="auto",cmap="viridis",
+                 vmin=0,vmax=1)
+    ax.set_yticks(range(len(selected)),selected)
+    ax.set_xlabel("Full-dimensional rotation candidate index (0 = identity)")
+    ax.set_title(title+" | each candidate mixes all K latent coordinates")
+    fig.colorbar(im,ax=ax,label="Row-normalized metric (constant row = 0.5)",shrink=.78)
+    fig.savefig(path,dpi=145)
+    plt.close(fig)
+
 def _rotation_heatmap(R,metric,path):
     fig,ax=plt.subplots(figsize=(5,4.4),layout="constrained")
     im=ax.imshow(np.abs(R),vmin=0,vmax=1,cmap="viridis")
@@ -79,6 +101,8 @@ def search_joint(cfg,variant,selected,backends,derivatives,operators,x_nodes,roo
             candidates.append(dict(candidate_id=n,**dict(zip(keys,angle.tolist())),
                 signed_permutation_distance=signed_permutation_distance(R),**score))
         _write_csv(destination/"joint_candidates.csv",candidates)
+        _candidate_heatmap(scores,selected,destination/"joint_candidates_heatmap.png",
+                           f"{variant.id} ({label})")
         best_rows=[];best_angles=[];best_matrices=[]
         for metric in selected:
             baseline=float(scores[0][metric])
