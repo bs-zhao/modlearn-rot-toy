@@ -63,6 +63,7 @@ def test():
         assert float(rows[0]["best_found"])<=float(rows[0]["at_identity"])+1e-9
         assert (search/"best_rotation_M018.png").exists()
         assert (search/"joint_search_improvements.png").exists()
+        assert (search/"joint_candidates_heatmap.png").exists()
         with np.load(search/"best_rotations.npz") as f:
             assert f["rotations"].shape==(1,4,4)
             assert orthogonality_error(f["rotations"][0])<1e-9
