@@ -9,6 +9,8 @@ from .backends import AnalyticBackend,train_neural,load_neural,checkpoint_path
 from .operators import derivative_bank,operator_bank,save_operator_bank
 from .metrics import METRICS,LOCAL_KEYS,SWEEP_KEYS,OPERATOR_KEYS,compute_metrics
 from .plotting import write_figures,plot_comparison,plot_xu
+from .rotations import joint_path,planes,path_weights
+from .joint_experiments import search_joint
 
 def _csv(path,rows):
     if not rows:return
@@ -82,8 +84,16 @@ def run(config):
                 bankfolder=out/v.model.name/v.transform/config.analysis_scale/backend_name
                 bankfolder.mkdir(parents=True,exist_ok=True)
                 save_operator_bank(bankfolder/"functional_operators.npz",op)
-        for i,j in _pairs(v.k,config.pairs):
-            folder=out/v.model.name/v.transform/config.analysis_scale/f"u{i+1}_u{j+1}"
+        jobs=[]
+        if config.rotation_mode in ("pair","all"):
+            for i,j in _pairs(v.k,config.pairs):
+                jobs.append((f"u{i+1}_u{j+1}",
+                    lambda phi,i=i,j=j:plane_rotation(v.k,i,j,phi)))
+        if config.rotation_mode in ("joint-path","all"):
+            jobs.append((f"joint_{config.joint_path}",
+                lambda phi:joint_path(v.k,phi,config.joint_path,config.seed)))
+        for rotation_label,rotate in jobs:
+            folder=out/v.model.name/v.transform/config.analysis_scale/rotation_label
             folder.mkdir(parents=True,exist_ok=True)
             by_backend={}
             for backend_name,backend in backends.items():
@@ -91,21 +101,30 @@ def run(config):
                 destination.mkdir(parents=True,exist_ok=True)
                 rows=[]
                 for phi in angles:
-                    R=plane_rotation(v.k,i,j,float(phi))
+                    R=rotate(float(phi))
                     scores=compute_metrics(R,selected,derivatives=banks.get(backend_name),
                         operator_bank=ops.get(backend_name),backend=backend,x_nodes=x_nodes,
                         sweep_steps=config.sweep_steps,sweep_radius=config.sweep_radius,
                         rectangle_step=config.rectangle_step,analysis_scale=config.analysis_scale)
                     rows.append(dict(angle_deg=round(float(phi),8),**scores))
                 _csv(destination/"metrics_by_angle.csv",rows)
-                optimum=write_figures(rows,destination,f"{v.id}/{backend_name}/u{i+1}_u{j+1}")
+                np.savez_compressed(destination/"rotation_matrices.npz",
+                    angle_deg=np.asarray(angles,dtype=float),
+                    rotations=np.stack([rotate(float(a)) for a in angles]),
+                    angle_pairs=np.asarray(planes(v.k),dtype=int))
+                optimum=write_figures(rows,destination,f"{v.id}/{backend_name}/{rotation_label}")
                 _csv(destination/"metric_optima.csv",optimum)
                 if config.xu_map and backend_name in banks:
                     plot_xu(banks[backend_name],destination,f"{v.id} XU")
-                summary.extend(dict(variant=v.id,pair=f"u{i+1}_u{j+1}",
+                summary.extend(dict(variant=v.id,pair=rotation_label,
                                      backend=backend_name,**item) for item in optimum)
                 by_backend[backend_name]=rows
-            settings=dict(variant=v.id,k=v.k,dx=v.dx,selected_metrics=selected,
+            settings=dict(variant=v.id,k=v.k,dx=v.dx,
+                          rotation_label=rotation_label,
+                          givens_order=planes(v.k),
+                          joint_path_coefficients=(path_weights(v.k,config.joint_path,config.seed).tolist()
+                              if rotation_label.startswith("joint_") else None),
+                          selected_metrics=selected,
                           metrics={m:METRICS[m].name for m in selected},
                           training=training,options=vars(config))
             if config.backend=="both":
@@ -124,6 +143,9 @@ def run(config):
             (folder/"settings.json").write_text(json.dumps(settings,indent=2,ensure_ascii=False),
                                                 encoding="utf-8")
             print(f"[{v.id}] {config.backend}: {folder}",flush=True)
+        if config.rotation_mode in ("joint-search","all"):
+            folder=out/v.model.name/v.transform/config.analysis_scale/"joint_search"
+            search_joint(config,v,selected,backends,banks,ops,x_nodes,folder)
     out.mkdir(parents=True,exist_ok=True)
     _csv(out/"all_metric_optima.csv",summary)
     return summary
@@ -154,7 +176,20 @@ def parser():
     p.add_argument("--angles",type=int,default=37)
     p.add_argument("--angle-min",type=float,default=-90)
     p.add_argument("--angle-max",type=float,default=90)
-    p.add_argument("--pairs",default="first")
+    p.add_argument("--pairs",default="first",
+        help="Pair mode: first, all, or i,j; used only when mode=pair/all")
+    p.add_argument("--rotation-mode",choices=("pair","joint-path","joint-search","all"),
+        default="pair",
+        help="Pair plane curves; a simultaneous K-axis curve; full K(K-1)/2-dimensional search; or all")
+    p.add_argument("--joint-path",choices=("balanced","alternating","ramped","random"),
+        default="ramped",
+        help="How each Givens plane angle changes with the joint-path x-axis angle")
+    p.add_argument("--joint-samples",type=int,default=48,
+        help="Extra seeded random full-dimensional candidate rotations")
+    p.add_argument("--joint-restarts",type=int,default=2,
+        help="Extra local minimization starts per metric, plus identity")
+    p.add_argument("--joint-maxiter",type=int,default=65,
+        help="Maximum iterations per full-dimensional optimizer restart")
     p.add_argument("--sweep-steps",type=int,default=101)
     p.add_argument("--sweep-radius",type=float,default=.45)
     p.add_argument("--rectangle-step",type=float,default=.2)
@@ -188,6 +223,8 @@ def cli():
         p.error("Require --u-points>=2, --x-points>=3, --angles>=3, --sweep-steps>=5")
     if not 0<a.sweep_radius<=.49 or not 0<a.rectangle_step<=.25:
         p.error("Invalid sweep radius or rectangle step")
+    if a.joint_samples<2 or a.joint_restarts<0 or a.joint_maxiter<1:
+        p.error("Require --joint-samples>=2, --joint-restarts>=0, --joint-maxiter>=1")
     if a.nn_train_samples<16 or a.nn_val_samples<16 or a.nn_epochs<1:
         p.error("Invalid network sample count or epoch count")
     if a.x_first_step<=0 or a.x_second_step<=0 or not 0<=a.v1_filter<=1 or not 0<=a.v2_filter<=1:
