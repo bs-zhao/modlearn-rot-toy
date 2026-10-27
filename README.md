@@ -56,6 +56,14 @@ python tests/test_e2e.py
 python run.py --models T1-id T3-sq T9-sig --metrics M001 M006 M017 M018 --pairs all --u-points 32 --x-points 100 --angles 37
 ```
 
+新增 **T10-sig**（连续 Y = sigmoid(a·X1^b + a·c·X2^b + d)），四参数联合旋转：
+
+```bash
+python run.py --models T10-sig --metrics all --rotation-mode joint-path --joint-path ramped --backend analytic --u-points 24 --x-points 100 --angles 73 --sweep-steps 61
+```
+
+需要搜索全部六个独立旋转角度时，可以用 `--rotation-mode joint-search` 并优先只选择少数 M 指标。
+
 在旧 v2 的**基础 logit 数学尺度**下探测 T9：
 
 ```bash

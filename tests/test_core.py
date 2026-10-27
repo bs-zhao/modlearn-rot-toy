@@ -47,6 +47,15 @@ def test():
     assert torch.allclose(evaluate("T9-id",x,b),y,atol=1e-13)
     assert torch.allclose(evaluate("T9-sig",x,b),torch.sigmoid(y),atol=1e-13)
 
+    # T10: shared exponent and amplitude product; sigmoid stays continuous.
+    xt=torch.tensor([[0.2,0.8],[0.6,0.3]],dtype=torch.float64)
+    th=torch.tensor([[0.4,0.5,0.7,0.2],[0.8,0.6,0.3,0.9]],dtype=torch.float64)
+    expected=th[:,0]*xt[:,0].pow(th[:,1])+th[:,0]*th[:,2]*xt[:,1].pow(th[:,1])+th[:,3]
+    assert torch.allclose(evaluate("T10-id",xt,th),expected,atol=1e-13)
+    assert torch.allclose(evaluate("T10-sig",xt,th),torch.sigmoid(expected),atol=1e-13)
+    assert torch.allclose(evaluate("T10-sig",xt,th,"inverse"),expected,atol=1e-12)
+    assert np.allclose(get_variant("T10-sig").y_bounds, (0.5, 1/(1+np.exp(-3))))
+
     x,t,_,_=paired_grid(2,2,4,11,2026)
     bank=derivative_bank(AnalyticBackend("T3-id"),x,t,4,11)
     a=rotated_derivatives(bank,plane_rotation(2,0,1,0))
