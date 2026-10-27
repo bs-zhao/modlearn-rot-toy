@@ -44,7 +44,7 @@ def tests():
     a=local_metrics(b,plane_rotation(2,0,1,0))
     c=local_metrics(b,plane_rotation(2,0,1,37))
     for n in ("u_grad_energy","xu_total_energy","x_gradient_energy","x_curvature_energy"):
-        assert np.isclose(a[n],c[n],atol=1e-10,rtol=1e-10),(n,a[n],c[n])
+        assert np.isclose(a[metric_id(n)],c[metric_id(n)],atol=1e-10,rtol=1e-10),(n,a[metric_id(n)],c[metric_id(n)])
     assert np.linalg.matrix_rank(bank("T4").gtheta[0],tol=1e-9)==3
     assert np.linalg.matrix_rank(bank("T8").gtheta[0],tol=1e-9)==4
     r=plane_rotation(2,0,1,32)
