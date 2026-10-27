@@ -1,89 +1,95 @@
-"""Function backends share predict(x,theta,scale) and all differentiable metrics.
+"""Interchangeable analytic eta and differentiable approximate F backends.
 
-This first surrogate is a smooth MLP. Future MP/NP implementations can provide
-the same interface without modifying derivative, sweep or plotting libraries.
+The neural surrogate learns continuous (theta, X) -> Y using MSE.
+It never uses generating parameter identities inside the metric optimizer.
+A future MP/NP can implement exactly predict(x,theta,scale).
 """
 from pathlib import Path
 import json
+import numpy as np
 import torch
 from torch import nn
-from .models import evaluate,MODELS,transform_output
+from .models import evaluate,get_variant
+from .transforms import output_domain_transform,analysis_transform
 from .sampling import sobol_interior
 
 class AnalyticBackend:
     kind="eta"
-    def __init__(self,model,wrapper):
-        self.model,self.wrapper=model,wrapper
+    def __init__(self,variant):
+        self.variant=get_variant(variant) if isinstance(variant,str) else variant
     def predict(self,x,theta,scale="raw"):
-        return evaluate(self.model,self.wrapper,x,theta,scale)
+        return evaluate(self.variant,x,theta,scale)
 
 class MLP(nn.Module):
-    def __init__(self,n_in,width=64,depth=3):
+    def __init__(self,n_inputs,width=64,depth=3):
         super().__init__()
-        modules=[];dim=n_in
+        layers=[];dim=n_inputs
         for _ in range(depth):
-            modules.extend([nn.Linear(dim,width),nn.Tanh()])
+            layers.extend([nn.Linear(dim,width),nn.Tanh()])
             dim=width
-        modules.append(nn.Linear(dim,1))
-        self.net=nn.Sequential(*modules)
+        layers.append(nn.Linear(dim,1))
+        self.net=nn.Sequential(*layers)
     def forward(self,x,theta):
         return self.net(torch.cat((x,theta),dim=-1)).squeeze(-1)
 
 class NeuralBackend:
     kind="F"
-    def __init__(self,model,wrapper,network):
-        self.model,self.wrapper=model,wrapper
+    def __init__(self,variant,network):
+        self.variant=get_variant(variant) if isinstance(variant,str) else variant
         self.network=network.eval().to(dtype=torch.float64)
         for p in self.network.parameters():p.requires_grad_(False)
     def predict(self,x,theta,scale="raw"):
-        return transform_output(self.network(x,theta),self.wrapper,scale)
+        y=output_domain_transform(self.network(x,theta),self.variant.transform)
+        return analysis_transform(y,self.variant.transform,scale)
 
-def training_samples(model,wrapper,n,seed):
-    m=MODELS[model]
-    arr=sobol_interior(m.k+m.dx,n,seed)
-    x=torch.tensor(arr[:,:m.dx],dtype=torch.float32)
-    theta=torch.tensor(arr[:,m.dx:],dtype=torch.float32)
-    with torch.no_grad():y=evaluate(model,wrapper,x,theta,"raw")
-    return x,theta,y
+def checkpoint_path(root,variant):
+    v=get_variant(variant) if isinstance(variant,str) else variant
+    return Path(root)/"checkpoints"/v.model.name/v.transform/"mlp.pt"
 
-def checkpoint_path(root,model,wrapper):
-    return Path(root)/"checkpoints"/model/f"{wrapper}_mlp.pt"
-
-def load_neural(path,model,wrapper):
+def load_neural(root,variant):
+    v=get_variant(variant) if isinstance(variant,str) else variant
+    path=checkpoint_path(root,v)
     obj=torch.load(path,map_location="cpu",weights_only=True)
-    info=MODELS[model]
-    if obj["model"]!=model or obj["wrapper"]!=wrapper or obj["k"]!=info.k or obj["dx"]!=info.dx:
-        raise ValueError("MLP checkpoint model, wrapper or dimensions mismatch")
-    network=MLP(info.k+info.dx,obj["width"],obj["depth"])
-    network.load_state_dict(obj["network"])
-    return NeuralBackend(model,wrapper,network)
+    if (obj["variant"]!=v.id or obj["k"]!=v.k or obj["dx"]!=v.dx):
+        raise ValueError("Checkpoint incompatible with requested toy variant")
+    net=MLP(v.k+v.dx,obj["width"],obj["depth"])
+    net.load_state_dict(obj["network"])
+    return NeuralBackend(v,net)
 
-def train_neural(root,model,wrapper,*,ntrain=4096,nval=1024,epochs=150,
+def train_neural(root,variant,*,n_train=4096,n_val=1024,epochs=120,
                  width=64,depth=3,lr=.002,batch_size=512,seed=20261026):
+    v=get_variant(variant) if isinstance(variant,str) else variant
     torch.manual_seed(seed)
-    x,t,y=training_samples(model,wrapper,ntrain,seed)
-    xv,tv,yv=training_samples(model,wrapper,nval,seed+10917)
-    info=MODELS[model]
-    net=MLP(info.k+info.dx,width,depth)
+    def sample(n,number):
+        arr=sobol_interior(v.dx+v.k,n,number)
+        x=torch.tensor(arr[:,:v.dx],dtype=torch.float32)
+        theta=torch.tensor(arr[:,v.dx:],dtype=torch.float32)
+        with torch.no_grad():y=evaluate(v,x,theta,"raw")
+        return x,theta,y
+    x,t,y=sample(n_train,seed);vx,vt,vy=sample(n_val,seed+217)
+    net=MLP(v.dx+v.k,width,depth)
     optimizer=torch.optim.Adam(net.parameters(),lr=lr)
-    best=float("inf");epoch_best=0;state=None
-    for epoch in range(epochs):
+    best=float("inf");best_epoch=0;state=None
+    for epoch in range(1,epochs+1):
         net.train()
         for idx in torch.randperm(len(x)).split(batch_size):
-            pred=net(x[idx],t[idx])
+            pred=output_domain_transform(net(x[idx],t[idx]),v.transform)
             loss=(pred-y[idx]).square().mean()
-            optimizer.zero_grad();loss.backward();optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
         net.eval()
-        with torch.no_grad():value=float((net(xv,tv)-yv).square().mean())
-        if value<best:
-            best=value;epoch_best=epoch+1
-            state={k:v.detach().clone() for k,v in net.state_dict().items()}
-    path=checkpoint_path(root,model,wrapper)
+        with torch.no_grad():
+            prediction=output_domain_transform(net(vx,vt),v.transform)
+            val=float((prediction-vy).square().mean())
+        if val<best:
+            best=val;best_epoch=epoch
+            state={k:a.detach().clone() for k,a in net.state_dict().items()}
+    path=checkpoint_path(root,v)
     path.parent.mkdir(parents=True,exist_ok=True)
-    torch.save(dict(model=model,wrapper=wrapper,k=info.k,dx=info.dx,width=width,depth=depth,network=state),path)
-    metadata=dict(model=model,wrapper=wrapper,network="MLP",train_samples=ntrain,
-        val_samples=nval,epochs=epochs,width=width,depth=depth,lr=lr,
-        seed=seed,best_validation_mse=best,best_epoch=epoch_best,
-        target="(theta,X) -> wrapped Y, raw output",checkpoint=str(path))
-    path.with_suffix(".json").write_text(json.dumps(metadata,indent=2),encoding="utf-8")
-    return load_neural(path,model,wrapper),metadata
+    torch.save(dict(variant=v.id,k=v.k,dx=v.dx,width=width,depth=depth,network=state),path)
+    stats=dict(variant=v.id,architecture="continuous-MLP",objective="MSE(X,theta -> Y)",
+               n_train=n_train,n_val=n_val,epochs=epochs,best_epoch=best_epoch,
+               best_validation_mse=best,seed=seed,checkpoint=str(path))
+    path.with_suffix(".json").write_text(json.dumps(stats,indent=2),encoding="utf-8")
+    return load_neural(root,v),stats

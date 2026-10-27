@@ -1,240 +1,128 @@
-# Toy Model Catalog — T1, T2, …
+# Toy 模型目录：基础函数、参数与连续输出范围
 
-> **代码对应版本：** 当前仓库的 `src/rottoy/toy_models/` 和 `src/rottoy/models.py`。本文是**全部已注册 toy 生成函数的公式总表**；新模型只按 T 编号递增，不另设 Choice/C2 类别或模型专用运行入口。
->
-> 指标的定义、求积和数学解释请看同目录 [README_METRICS.md](README_METRICS.md)。
+本文件是 `src/rottoy/toy_models/` 与 `src/rottoy/transforms.py` 的数学说明。基础函数统一用 **T1、T2、…** 编号。每个基础函数可以使用全部输出变换，版本名为 **`T编号-后缀`**，例如 `T9-sig`。任何输出都属于**连续数值**，`sig` 只是连续 Sigmoid 函数，不采样二分类 choice。
 
-## 1. 所有模型共用的数学定义
+## 1. 统一约定
 
-设第 $m$ 个 toy 为
+对 T 模型，令真实参数 $\theta\in[0,1]^K$，刺激输入 $X\in[0,1]^{D_X}$，基础函数为 $\eta_T(X,\theta)\in\mathbb R$。所有参数坐标和所有输入坐标**分别**在闭区间 $[0,1]$。计算时默认使用区间内部的 Sobol 节点，因此有限采样通常不能达到下表的理论端点；幂函数在 $x=0,b=0$ 等位置可能需要单独约定极限，数值实现避开这些边界。
 
-$
-\eta_m:\mathcal X_m\times\Theta_m\longrightarrow\mathbb R,\qquad
-\eta_m(x,\theta),
-$
+$$
+Y_{T,w}(X,\theta)=g_w\!\left(\eta_T(X,\theta)\right),
+\qquad u=R\theta,\qquad
+\eta'_{T,w,R}(X,u)=g_w\!\left(\eta_T(X,R^\top u)\right).
+$$
 
-其中 $D_X=\dim(x)$、$K=\dim(\theta)$。目前全部**原始物理变量**满足
+$R$ 是正交旋转。**旋转后 $u$ 不必仍位于 $[0,1]^K$**，但相应的真实参数 $\theta=R^\top u$ 必须处于原物理定义域。范围与模型参数化无关：正交重参数化不改变在相同物理域上的 $Y$ 理论上下界。
 
-$
-x_j\in[0,1],\qquad \theta_k\in[0,1].
-$
+### 全部变换：每个 T 模型自动拥有以下六个后缀
 
-实际 Sobol 数值采样在开区间内进行（默认将节点缩到 $[10^{-4},1-10^{-4}]$），以避免 $x=0$ 时非整数幂的导数奇点。每一维由相同的统一采样器生成，不表示“被试”或“试次”。
+| 版本后缀 | 连续输出公式 $g_w(t)$ | 固有值域 | 可逆性 | 结构作用 |
+|---|---|---|---|---|
+| **`-id`** | $t$ | $\mathbb R$ | 是 | 保留原函数 |
+| **`-sig`** | $\sigma(t)=1/(1+e^{-t})$ | $(0,1)$ | 是；logit | 有界饱和，但**不是 Bernoulli** |
+| **`-sq`** | $t^2$ | $[0,\infty)$ | 否 | 损失符号，引入平方和乘积 |
+| **`-tanh`** | $\tanh(t)$ | $(-1,1)$ | 是；atanh | 对称饱和 |
+| **`-sp`** | $\operatorname{sp}(t)=\log(1+e^t)$ | $(0,\infty)$ | 是 | 正值且光滑，近指数/线性 |
+| **`-exp`** | $e^t$ | $(0,\infty)$ | 是；log | 正值和乘性效应 |
 
-### 输出包装器（所有 T 模型统一）
+上表的“固有值域”是变换作用于全部实数时的值域；**具体 toy 的 $Y$ 有更窄的实际理论上下界**，详见下方第 3 节。
 
-基础函数 $\eta_m(x,\theta)$ 的返回值**不带** sigmoid：
+## 2. 每个 toy 的参数、X 范围与基础 $\eta$ 范围
 
-$
+所有参数和 X 均在 $[0,1]$。下表重复列出每个模型的独立变量，以便明确维数与参数名，而不是只说一个总规则。
+
+| ID | 真实参数与**各自**取值范围 | 输入 X 与**各自**取值范围 | 基础生成函数 $\eta_T(X,\theta)$ | 理论基础输出 $\eta_T$ 范围 |
+|---|---|---|---|---|
+| **T1** | $a,b\in[0,1]$ | $x\in[0,1]$ | $ax^b$ | $[0,1]$ |
+| **T2** | $a,b,c\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1+bx_2+c$ | $[0,3]$ |
+| **T3** | $a,b\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1+abx_2$ | $[0,2]$ |
+| **T4** | $a,b,c,d\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1^b+cdx_2^b$ | $[0,2]$ |
+| **T5** | $a,b,c,d\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1+bx_1^2+cx_2+d$ | $[0,4]$ |
+| **T6** | $a,b,c,d\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1+bx_2+cx_1x_2+d$ | $[0,4]$ |
+| **T7** | $a,b\in[0,1]$ | $x\in[0,1]$ | $ae^{bx}$ | $[0,e]$ |
+| **T8** | $a,b,c,d\in[0,1]$ | $x_1,x_2,x_3\in[0,1]$ | $ax_1^b+cdx_2^b+cx_3$ | $[0,3]$ |
+| **T9** | $b_1,b_2,b_3,b_4\in[0,1]$ | $X_{1A},X_{1B},X_{2A},X_{2B}\in[0,1]$ | 见下方完整公式 | $[-A,1+A]$ |
+
+其中
+
+$$
+A=2\sqrt3+\frac{3\sqrt5}{2}\approx6.8182,
+\qquad 1+A\approx7.8182.
+$$
+
+**T9 的上下界不是随便把公式各项独立求和估计出来的。** 因为 $b_1$ 的系数恒为正、$X_{1A}$ 与 $X_{1B}$ 同时以单调相反方向进入两项，真正的最小值可在 $(b_1,X_{1A},X_{1B},X_{2A},X_{2B})=(0,0,1,0,1)$ 且 $b_2=b_3=b_4=1$ 取得；最大值可在 $(1,1,0,1,0)$ 且 $b_2=b_3=b_4=1$ 取得。这些上下界是精确的闭域极值（对使用内部节点的数值求积而言是理论上下界）。
+
+### 各基础函数的数学结构
+
+**T1：幂函数，幅度与指数。** $\eta=ax^b$；在 $a,x>0$ 时 $\log\eta=\log a+b\log x$，可以检验幅度与形状分离。
+
+**T2：线性效应与偏置。** $\eta=ax_1+bx_2+c$；$H_{\theta\theta}=0$，该性质在任意线性旋转后保持。它是原 C1 的**简化类比**，并非 C1 逐项原始公式。
+
+**T3：真实参数乘积。** $\eta=ax_1+abx_2$，$H_{ab}=\begin{psmallmatrix}0&x_2\\x_2&0\end{psmallmatrix}$。45° 混合后原本的 $ab$ 变成 $u_1^2-u_2^2$，仅罚 UU 非对角项会错选。
+
+**T4：不可识别的乘积。** $\eta=ax_1^b+cdx_2^b$；在非退化区域内函数只能看到 $cd$，不能分别识别 $c,d$ 的尺度。
+
+**T5：同一 X 上的线性/二次。** $\eta=ax_1+bx_1^2+cx_2+d$；局部 $\partial_{x_1}\nabla_\theta\eta=(1,2x_1,0,0)$ 可同时涉及两个真实参数。
+
+**T6：X 的混合项。** $\eta=ax_1+bx_2+cx_1x_2+d$；有 $\partial_{x_1x_2}\eta=c$，适合 XXU 类型指标。
+
+**T7：指数函数。** $\eta=ae^{bx}$；在 $a>0$ 时 $\log\eta=\log a+bx$。
+
+**T8：T4 的额外独立通道。** $\eta=ax_1^b+cdx_2^b+cx_3$；增加 $cx_3$，用于 T4 的可识别性对照。
+
+**T9：原项目 C2 生成公式作为统一 T 编号。** 按顺序 $X=(X_{1A},X_{1B},X_{2A},X_{2B})$，参数 $\theta=(b_1,b_2,b_3,b_4)$：
+
+$$
+\boxed{
 \begin{aligned}
-g_{\rm identity}(t)&=t,\\
-g_{\rm sigmoid}(t)&=\sigma(t)=\frac{1}{1+e^{-t}},\\
-g_{\rm square}(t)&=t^2,\\
-Y_{m,w}(x,\theta)&=g_w\!\left(\eta_m(x,\theta)\right).
-\end{aligned}
-$
-
-分析尺度 `--analysis-scale` 进一步作用于 $Y$：
-
-| 设置 | 计算的函数 $h=T(Y)$ | 备注 |
-|---|---|---|
-| `raw` | $h=Y$ | 默认；`sigmoid` 时是概率 |
-| `log` | $h=\log\max(Y,10^{-20})$ | 仅在正值响应上解释为 log；实现包含 clamp |
-| `inverse-link` | $h=\operatorname{logit}\{\operatorname{clip}(Y,10^{-12},1-10^{-12})\}$ | 只允许 `sigmoid` 包装器 |
-
-**注意：** logit / log / raw 下的梯度和 Hessian 不是相同指标；平方包装器可能带来符号不可识别性。
-
-### 旋转定义
-
-目前的解析测试取理想可达潜空间 $z=\theta$。在任意两个坐标 $(i,j)$ 中给定平面正交旋转 $R_{ij}(\phi)$，其 $2\times2$ 非平凡子块为
-
-$
-R_{ij}(\phi)=\begin{pmatrix}\cos\phi&-\sin\phi\\
-\sin\phi&\cos\phi\end{pmatrix},\qquad
-u=R\theta,\quad\theta=R^\top u.
-$
-
-所以解析和网络的旋转函数分别为
-
-$
-\boxed{\eta'_R(x,u)=\eta_m(x,R^\top u)},\qquad
-\boxed{F'_R(x,u)=F(x,R^\top u)}.
-$
-
-$\phi=0^\circ$ 对应原始参数轴；旋转后的 $u$ **不要求**仍属于 $[0,1]^K$，但评价点逆变换后的 $\theta$ 必须位于合法原始定义域。旋转只更改坐标，不改变同一 $(x,\theta)$ 的函数值。
-
-## 2. 已实现模型总表（T1–T9）
-
-| ID | 真实参数顺序 $\theta$ | $K$ | X 顺序 | $D_X$ | 生成函数及用途 | 代码 |
-|---|---|---:|---|---:|---|---|
-| **T1** | $(a,b)$ | 2 | $(x)$ | 1 | 幂函数；幅度与指数作用 | [builtins.py](../src/rottoy/toy_models/builtins.py) |
-| **T2** | $(a,b,c)$ | 3 | $(x_1,x_2)$ | 2 | 线性项与偏置；C1 型简化类比 | [builtins.py](../src/rottoy/toy_models/builtins.py) |
-| **T3** | $(a,b)$ | 2 | $(x_1,x_2)$ | 2 | 真正的 $ab$ 参数交互；45° 负对照 | [builtins.py](../src/rottoy/toy_models/builtins.py) |
-| **T4** | $(a,b,c,d)$ | 4 | $(x_1,x_2)$ | 2 | 共享幂指数与 $cd$；不可识别负对照 | [builtins.py](../src/rottoy/toy_models/builtins.py) |
-| **T5** | $(a,b,c,d)$ | 4 | $(x_1,x_2)$ | 2 | 同一 X 上的线性/二次效应 | [builtins.py](../src/rottoy/toy_models/builtins.py) |
-| **T6** | $(a,b,c,d)$ | 4 | $(x_1,x_2)$ | 2 | $x_1x_2$ 刺激交互 | [builtins.py](../src/rottoy/toy_models/builtins.py) |
-| **T7** | $(a,b)$ | 2 | $(x)$ | 1 | 指数函数；独立插件范例 | [t7.py](../src/rottoy/toy_models/t7.py) |
-| **T8** | $(a,b,c,d)$ | 4 | $(x_1,x_2,x_3)$ | 3 | T4 加入 $cx_3$ 的可识别性对照 | [builtins.py](../src/rottoy/toy_models/builtins.py) |
-| **T9** | $(b_1,b_2,b_3,b_4)$ | 4 | $(X_{1A},X_{1B},X_{2A},X_{2B})$ | 4 | 原项目 C2 的完整 logit 生成公式 | [t9.py](../src/rottoy/toy_models/t9.py) |
-
-模型 ID 是唯一正式接口；先前的 `T4ID` 现在是 **T8**，先前单列的 C2 公式现在是 **T9**。
-
-## 3. 各模型具体公式、可辨识结构
-
-### T1 — 幂函数：幅度与指数
-
-$
-\boxed{\eta_1(x;a,b)=a x^b.}
-$
-
-$a$ 同比例缩放响应，$b$ 控制形状；$x>0$ 的区域可取
-
-$
-\log\eta_1=\log a+b\log x.
-$
-
-例如 $\partial_{xb}\log\eta_1=1/x$、$\partial_{xa}\log\eta_1=0$。适用于研究纯尺度方向、形状变化、U-sweep、log 表示对函数简单性的影响。
-
-### T2 — 两项线性加偏置
-
-$
-\boxed{\eta_2(x_1,x_2;a,b,c)=a x_1+b x_2+c.}
-$
-
-$
-\nabla_\theta\eta_2=(x_1,x_2,1)^\top,\qquad
-H_{\theta\theta}=0.
-$
-
-参数在 logit/identity 基础函数尺度上全部线性，任何**线性旋转**后 $H_{UU}$ 仍然为零。它只是 **C1 型简化 toy**，**不是**原项目 C1 的逐项原始公式或参数分布。
-
-### T3 — 刺激作用中的参数乘积
-
-$
-\boxed{\eta_3(x_1,x_2;a,b)=a x_1+ab x_2.}
-$
-
-$
-H_{ab}=\begin{pmatrix}0&x_2\\x_2&0\end{pmatrix}.
-$
-
-按 $u_1=(a+b)/\sqrt2,u_2=(a-b)/\sqrt2$ 进行 45° 变换后，
-
-$
-\eta_3(x,u)=\frac{u_1+u_2}{\sqrt2}x_1+
-\frac{u_1^2-u_2^2}{2}x_2.
-$
-
-正确轴下非对角 UU 曲率非零；45° 下非对角消失、出现自身平方项。因此**只最小化 UU 非对角曲率会选错**。将 $(a,b)$ 变成 $(a,ab)$ 是非线性重参数化，不允许在当前线性旋转空间内直接使用。
-
-### T4 — 共享指数 + 不可识别乘积
-
-$
-\boxed{\eta_4(x_1,x_2;a,b,c,d)=a x_1^b+cd x_2^b.}
-$
-
-$
-\partial_c\eta_4=d x_2^b,\qquad
-\partial_d\eta_4=c x_2^b.
-$
-
-两列成比例；$(c,d)\mapsto(kc,d/k)$ 保持输出不变，因此在通常的非退化区域内可识别的独立函数方向最多只有 3 个。**不能要求仅从函数恢复全部 4 个真参数。**
-
-### T5 — 同一刺激的线性/二次效应
-
-$
-\boxed{\eta_5(x_1,x_2;a,b,c,d)=a x_1+b x_1^2+c x_2+d.}
-$
-
-$
-\partial_{x_1}\nabla_\theta\eta_5=(1,\,2x_1,\,0,\,0)^\top,\qquad
-\partial_{x_1x_1}\nabla_\theta\eta_5=(0,\,2,\,0,\,0)^\top.
-$
-
-同一个局部 XU 导数涉及多个真参数，不能强行要求每个局部导数只作用于单一参数。对 X 求均值/协方差、二阶导数等整体算子可能分离其作用。
-
-### T6 — 刺激交互
-
-$
-\boxed{\eta_6(x_1,x_2;a,b,c,d)=a x_1+b x_2+c x_1x_2+d.}
-$
-
-$
-\partial_{x_1x_2}\eta_6=c,\qquad
-\partial_c\partial_{x_1x_2}\eta_6=1.
-$
-
-测试 XXU 高阶算子与跨 X 交互参数的可分离性。
-
-### T7 — 指数幅度与指数斜率
-
-$
-\boxed{\eta_7(x;a,b)=a e^{bx}.}
-$
-
-对数尺度下 $\log\eta_7=\log a+bx$，与 T1 的幅度/形状分解进行对比。这也是自动发现新 toy 插件的单文件示例。
-
-### T8 — 为 T4 增加独立识别通道
-
-$
-\boxed{\eta_8(x_1,x_2,x_3;a,b,c,d)
-=a x_1^b+cd x_2^b+c x_3.}
-$
-
-当 $c>0$，且 X 的变化具有足够丰富的独立信息时，$cx_3$ 为 $c$ 提供一个独立的函数作用，进而可能把 $d$ 与 $c$ 分离。与 T4 成对构成可识别性正/负对照。
-
-### T9 — 原项目 C2 的四参数 logit 函数
-
-物理 X 坐标顺序必须严格保持为
-$(X_{1A},X_{1B},X_{2A},X_{2B})$。
-
-$
-\boxed{\begin{aligned}
-\eta_9(X,b)={}&b_1+
-\sqrt3\,b_2(X_{1A}-X_{1B})\\
+\eta_9(X,\theta)={}&b_1+\sqrt3\,b_2(X_{1A}-X_{1B})\\
 &+\frac{\sqrt5}{2}b_3
 \left[(3X_{1A}^2-1)-(3X_{1B}^2-1)\right]\\
 &+\sqrt3\,b_4(X_{2A}-X_{2B}).
 \end{aligned}}
-$
+$$
 
-使用 `--wrappers sigmoid` 时，
-$
-\boxed{P(Y=1\mid X,b)=\sigma(\eta_9(X,b)).}
-$
+`T9-sig` 的 $Y=\sigma(\eta_9)$ 是**连续的 Sigmoid 输出值**；这个项目不将它作为二分类 choice 进行抽样。T9 的参数与 X 范围是当前 toy 统一的 $[0,1]$，因此不等于原经验实验所用的参数分布与刺激设计。
 
-该公式来自原项目的 C2 生成器，但本 toy 仓库改用每个 $b_k$ 与 X 维度均在 0–1 范围的参考分布：**公式相同，不代表原数据设计、参数先验或模型恢复性能相同**。
+## 3. 每个 toy 的六种 $Y$ 理论取值范围
 
-在原始 logit 函数尺度，
-$
-\partial_{X_{1A}}\nabla_b\eta_9
-=(0,\sqrt3,3\sqrt5 X_{1A},0)^\top.
-$
-因此真实参数下的局部梯度本来也可以涉及 $b_2,b_3$ 两个坐标；这应被用于检验错误的局部稀疏假设。
+令 $S(t)=\sigma(t)$、$Q(t)=\tanh(t)$、$P(t)=\log(1+e^t)$，以及上面定义的 $A=2\sqrt3+3\sqrt5/2$。因为 $S,Q,P,\exp$ 都严格单调，所以它们的输出边界直接由 $\eta$ 的边界映射得到。平方版本在跨越零点时要特别处理。
 
-## 4. 生成、积分与 U-sweep 设置
+| ID | `-id`：$Y=\eta$ | `-sig`：$Y=S(\eta)$ | `-sq`：$Y=\eta^2$ |
+|---|---|---|---|
+| **T1** | $[0,1]$ | $[\tfrac12,S(1)]$ | $[0,1]$ |
+| **T2** | $[0,3]$ | $[\tfrac12,S(3)]$ | $[0,9]$ |
+| **T3** | $[0,2]$ | $[\tfrac12,S(2)]$ | $[0,4]$ |
+| **T4** | $[0,2]$ | $[\tfrac12,S(2)]$ | $[0,4]$ |
+| **T5** | $[0,4]$ | $[\tfrac12,S(4)]$ | $[0,16]$ |
+| **T6** | $[0,4]$ | $[\tfrac12,S(4)]$ | $[0,16]$ |
+| **T7** | $[0,e]$ | $[\tfrac12,S(e)]$ | $[0,e^2]$ |
+| **T8** | $[0,3]$ | $[\tfrac12,S(3)]$ | $[0,9]$ |
+| **T9** | $[-A,1+A]$ | $[S(-A),S(1+A)]$ | $[0,(1+A)^2]$ |
 
-- **X / θ 联合参考积分：** Sobol 节点 $\theta^{(n)}\in(0,1)^K$、$x^{(t)}\in(0,1)^{D_X}$。调用 `paired_grid` 做完整交叉组合；`--u-points` 是 θ/U 数值求积节点数，`--x-points` 是 X 节点数，**不是被试和试次**。
-- **X 各维单轴扫描：** `--x-mode axis_sweeps`；每个 X 维度使用 `--x-points` 个中点，其他 X 坐标固定为 0.5。
-- **角度：** `--pairs first|all|i,j`，`--angles`；0° 是参数对齐的原始坐标。
-- **U 单轴 sweep：** 默认在原参数中心 $\theta_0=(0.5,\ldots,0.5)$ 沿第 $k$ 个旋转坐标方向扫描：$\theta(s)=\theta_0+sR_{k\cdot}$、$s\in[-0.45,0.45]$；`--sweep-steps` 默认 101。
-- **U 双轴矩形扰动：** $\theta=\theta_0\pm hR_{k\cdot}\pm hR_{l\cdot}$，默认 `--rectangle-step 0.2`。
-- **网络近似：** `--backend analytic|neural|both`；当前 neural 为输入 $(\theta,X)$ 预测包装后 $Y$ 的 MLP，尚不是 NP/MP，训练好后在旋转间共享同一个 checkpoint。
+| ID | `-tanh`：$Y=Q(\eta)$ | `-sp`：$Y=P(\eta)$ | `-exp`：$Y=e^\eta$ |
+|---|---|---|---|
+| **T1** | $[0,Q(1)]$ | $[\log2,P(1)]$ | $[1,e]$ |
+| **T2** | $[0,Q(3)]$ | $[\log2,P(3)]$ | $[1,e^3]$ |
+| **T3** | $[0,Q(2)]$ | $[\log2,P(2)]$ | $[1,e^2]$ |
+| **T4** | $[0,Q(2)]$ | $[\log2,P(2)]$ | $[1,e^2]$ |
+| **T5** | $[0,Q(4)]$ | $[\log2,P(4)]$ | $[1,e^4]$ |
+| **T6** | $[0,Q(4)]$ | $[\log2,P(4)]$ | $[1,e^4]$ |
+| **T7** | $[0,Q(e)]$ | $[\log2,P(e)]$ | $[1,e^e]$ |
+| **T8** | $[0,Q(3)]$ | $[\log2,P(3)]$ | $[1,e^3]$ |
+| **T9** | $[Q(-A),Q(1+A)]$ | $[P(-A),P(1+A)]$ | $[e^{-A},e^{1+A}]$ |
 
-**结论的检验边界：** 此处的 toy 只在规定的正交线性旋转集合和参考积分测度下比较函数性质；一个指标在某个模型的 0° 最小，并不意味着对所有模型都能恢复真参数。
+**区分理论输出范围和有限数据观察范围：** 上表是解析公式在完整合法闭区间上的严格上下界（幂函数相关边界按连续极限理解）。`--u-points` / `--x-points` 只改变数值求积精度；不应该根据样本最小值/最大值重写这里的理论上下界。
 
-## 5. 运行命令与以后新增模型的维护规则
+另外，以上是**解析生成函数**的严格范围。神经近似 $F$ 的输出头会约束到每种变换本身的值域，但不一定严格满足特定 T 模型更窄的上下界。要检查 $F$ 是否越界，应将神经预测与这些理论范围对照。
 
-```bash
-python run.py --list-models
-python run.py --models T1 T3 T9 --wrappers sigmoid --backend analytic
-python run.py --models T9 --wrappers sigmoid --pairs all --u-points 100 --x-points 100
-```
+## 4. 运算、数值取点和新增模型
 
-以后新增 T10 时，在 `src/rottoy/toy_models/t10.py` 中用 `@register_model("T10",k=...,dx=...,description=...)` 注册原始可微生成函数，然后**在本文件增加 T10 表格行及一段准确数学公式**；不要改动已有 T 编号，也不要建立 T10 专用的指标/绘图接口。
+- `--models T3-id T3-sig T9-sq`：一次选择多个函数版本；裸 `T3` 是 `T3-id` 的简写。
+- `--u-points 100 --x-points 100`：指定 U/θ 与 X 的数学求积节点数；不是被试或试次。
+- `--x-mode axis_sweeps`：逐一遍历 X 维，每个取固定网格，其他 X 维度固定 0.5。
+- `--pairs all --angles 181`：遍历全部参数轴对的平面旋转。
+- `--analysis-scale raw|log|inverse`：普通指标分析尺度；平方包装不可逆。
+- `--operator-scale raw|inverse`：功能算子（M017–M024）的独立分析尺度。
 
-验证当前自动注册结果：
-
-```bash
-python tests/test_registry.py
-```
+新增下一项 T10 时，在 `src/rottoy/toy_models/t10.py` 增加一次 `@register_model("T10", k=..., dx=..., description=...)`，无需修改其他模型、输出变换、求积或绘图代码。**必须同步维护本文件：参数/X 取值范围、基础函数、$\eta$ 精确取值范围和六个 $Y$ 版本的输出上下界。**

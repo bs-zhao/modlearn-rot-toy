@@ -1,143 +1,82 @@
 # modlearn-rot-toy
 
-**One registry of toy functions (`T1, T2, ...`), one registry of functional metrics (`M001, M002, ...`), one benchmark pipeline.**
+独立的**连续函数旋转数学测试台**。基础模型统一编号 `T1、T2、…`，输出变换统一后缀 `-id/-sig/-sq/-tanh/-sp/-exp`；指标统一编号 `M001、M002、…`。全部输出都是连续数值，不采样二分类标签。每项指标在解析函数 $\eta'$ 和神经网络近似 $F'$ 上使用**同一**数学定义、数值节点和绘图程序。
 
-The original C2 choice-probability formula, models with parameter interaction, and the formerly separate Fisher / first- and second-X-derivative function operators are **ordinary entries** in these registries. There are no C2-specific run commands, backend classes, or metric scripts. Both the exact analytic function `eta'` and a differentiable approximate network `F'` go through the same operators, numerical X/U quadrature, rotation sweeps, metric IDs and plots.
+## 详细参考文档
 
+- **[全部 T 模型：生成公式、每个参数/X 的范围、基础 η 和六种 Y 版本的理论上下界](catalog/README_TOY_MODELS.md)**
+- **[全部 24 项 M 指标：数学公式、意义、近似算法、局限与正交不变量](catalog/README_METRICS.md)**
 
-## Reference catalogs (formulas and meanings)
+新增 T/M 编号时，文档总表与实际代码一一对应；测试会检查覆盖情况。
 
-- **[Toy models — T1, T2, …](catalog/README_TOY_MODELS.md):** all registered generators, exact formulas, parameter/X definitions, wrappers and identifiability cautions.
-- **[Metrics — M001, M002, …](catalog/README_METRICS.md):** all implemented indicator formulas, exact numerical aggregation, interpretation, invariants and known failure cases.
+## 新项目代码布局
 
-Update these two catalogs whenever appending a new registered T model or M indicator. They are reference documentation; the actual definitions live in `src/rottoy/toy_models/`, `src/rottoy/metrics.py`, and `src/rottoy/operators.py`.
-
-## Model registry (append new T numbers indefinitely)
-
-| ID | Formula for the base `eta(X,theta)` | Source / role |
-|---|---|---|
-| T1 | `a*x**b` | Amplitude and exponent |
-| T2 | `a*x1 + b*x2 + c` | Linear |
-| T3 | `a*x1 + a*b*x2` | Parameter multiplication / 45-degree counterexample |
-| T4 | `a*x1**b + c*d*x2**b` | Nonidentifiable 4-parameter negative control |
-| T5 | `a*x1 + b*x1**2 + c*x2 + d` | Shared-X polynomial |
-| T6 | `a*x1 + b*x2 + c*x1*x2 + d` | X interaction |
-| T7 | `a*exp(b*x)` | Exponential plugin example |
-| T8 | `a*x1**b + c*d*x2**b + c*x3` | Identifiable extension of T4, previously labeled `T4ID` |
-| T9 | `b1+sqrt(3)*b2*(X1A-X1B)+sqrt(5)/2*b3*(3*X1A**2-3*X1B**2)+sqrt(3)*b4*(X2A-X2B)` | Formula from the original C2 experiment, **now a normal toy** |
-
-All physical `theta` and individual `X` values lie in **[0,1]**, with strictly interior integration nodes for power functions. The rotated coordinates `u=R theta` need not individually lie in [0,1]. The default rotation is an orthogonal plane rotation; at 0 degrees, axes are aligned.
-
-Every toy supports `identity`, `sigmoid`, `square` output wrappers, with optional `raw`, `log`, and (for sigmoid) `inverse-link` analysis scales. For T9, `--wrappers sigmoid` gives its original probability `p=sigmoid(eta)`; the default raw scale analyzes the probability, while `inverse-link` analyzes its logit. The original C2 sampling range was not necessarily [0,1]; this repo deliberately applies its formula to the unified toy range rather than attempting to reproduce old datasets.
-
-### Adding a toy
-
-Create `src/rottoy/toy_models/t10.py`:
-
-```python
-from ..models import register_model
-
-@register_model("T10", k=2, dx=1, description="A new toy function")
-def t10(x, theta):
-    return theta[..., 0] * x[..., 0] + theta[..., 1]
-```
-
-Nothing changes in the CLI, numerical operators, network backends, metric registry, or plotting. All registered toy names must be of the form `T` followed by a positive integer; run `python run.py --list-models`.
-
-## Metrics: numbered append-only registry
-
-**24 metrics, IDs M001–M024**, with stable meanings. New metrics must be added using `register_metric(name,description)` in the **shared** `src/rottoy/metrics.py`; this assigns the next M number automatically. Implement the metric within the same common metric library and return it through `evaluate_metrics`. No model-specific metric file is created.
-
-| ID | Indicator |
-|---|---|
-| M001 | XU RMS group L1 sparsity |
-| M002 | XU group energy concentration |
-| M003 | Local normalized XU L1 (known counterexample for T5/T9) |
-| M004 | U-gradient variation across X: covariance offdiagonal |
-| M005 | U-gradient Gram offdiagonal |
-| M006 | UU offdiagonal Hessian fraction |
-| M007 | UU diagonal Hessian fraction |
-| M008 | U gradient total energy (orthogonal invariant) |
-| M009 | XU total energy (orthogonal invariant) |
-| M010 | X gradient energy (rotation invariant) |
-| M011 | XX curvature energy (rotation invariant) |
-| M012 | Global U-sweep affine fit residual |
-| M013 | Minimum normalized response-shape variation |
-| M014 | Minimum rank-one U-sweep matrix approximation error |
-| M015 | U-sweep second finite difference curvature |
-| M016 | UU finite-rectangle mixed effect |
-| M017 | Function-operator v1 joint diagonalization: level + first X |
-| M018 | Function-operator v2 joint diagonalization: level + first and second X |
-| M019 | Operator v1 level component |
-| M020 | Operator v1 first-X component |
-| M021 | Operator v2 diagonal second-X component |
-| M022 | Operator v2 mixed second-X component |
-| M023 | Logistic-weighted gradient information offdiagonal |
-| M024 | Logistic-weighted gradient information trace (orthogonal invariant) |
-
-Metrics M017–M024 retain their **mathematical lineage** from [decoder_fisher_jointdiag v1/v2](https://github.com/Cognition-Decision-Modeling-Lab/modlearn-rot-2/tree/main/experiment/rotation/choice/decoder_fisher_jointdiag), but there is no historical/choice-specific execution path. The generic operator bank computes:
 ```text
-g(X,u) = grad_u h(X,u)
-psi_0(u) = integral_X g(X,u) dQ_X
-psi_j(u) = integral_X sd(X_j) * derivative_Xj g(X,u) dQ_X
-psi_jl(u) = integral_X sd(X_j)*sd(X_l)*derivative_XjXl g(X,u) dQ_X
-K_alpha = integral_U psi_alpha(u) psi_alpha(u)^T dQ_U
+src/rottoy/
+  toy_models/           # T1、T2、...：只有基础 η 的生成公式
+  models.py             # toy 注册、T编号-后缀解析、eta_bounds、平面旋转
+  transforms.py         # 所有 toy 共享的六种连续输出变换及精确范围映射
+  backends.py           # analytic eta 或神经近似 F；连续 Y 的 MSE
+  sampling.py           # X 与 θ/U 的合法数值积分节点
+  operators/
+    derivatives.py      # X/U 导数 bank、梯度与 Hessian
+    functionals.py      # X积分 → 外积 → U积分 → 算子矩阵
+  metrics/
+    specs.py            # 稳定的 M001–M024 名称、数学式、实现方法、解释
+    pointwise.py        # M001–M011
+    sweeps.py           # M012–M016
+    __init__.py         # M017–M024 与统一 compute_metrics
+  plotting.py           # 指标曲线、角度热力图、解析 η 对比网络 F
+  runner.py             # 唯一实验运行器和参数解析
+  __main__.py           # 包入口
+catalog/
+  README_TOY_MODELS.md
+  README_METRICS.md
+tests/
+  test_core.py          # 数学检验、参数/X/Y 范围、算子一致性
+  test_e2e.py           # 解析/神经双后端完整小规模测试
+run.py                  # 无需 pip install -e . 的独立入口
+outputs/                # 所有生成文件；gitignore，不推送 GitHub
 ```
-X and U integrations use numerical quadrature nodes, **not participants and trials**. Matrices are filtered by relative energy, normalized by Frobenius norm, and optimized by joint offdiagonal energy. For `sigmoid` response, these function operators use the logit scale. M023–M024 use the corresponding sigmoid/logistic Fisher weighting as a generic comparison function, not a task-specific empirical likelihood. The predictive Fisher active-rank estimate is a saved diagnostic; it is not used to truncate the toy coordinates.
 
-## How to run (no editable installation or pytest)
+## 快速运行
 
 ```bash
-cd /fs/scratch/PDE0114/projects/modlearn-rot-toy
-git pull --ff-only
-source .venv/bin/activate
+python -m pip install -r requirements.txt
 python run.py --list-models
 python run.py --list-metrics
-python tests/test_toys.py
-python tests/test_dual_backend.py
-python tests/test_functional_operators.py
-python run.py --models T9 --wrappers sigmoid --pairs 2,3 --u-points 24 --x-points 100 --sweep-steps 101 --angles 37
+python run.py --describe-metric M018
+python tests/test_core.py
+python tests/test_e2e.py
 ```
 
-Several models and selected metrics, using the same interface:
+比较多个 toy 变体（裸 `T3` 表示 `T3-id`）：
 
 ```bash
-python run.py --models T1 T3 T9 --wrappers sigmoid --metrics M004 M006 M017 M018 --pairs all --u-points 32 --x-points 100
+python run.py --models T1-id T3-sq T9-sig --metrics M001 M006 M017 M018 --pairs all --u-points 32 --x-points 100 --angles 37
 ```
 
-Exact `eta'` and trained approximation `F'`:
+在旧 v2 的**基础 logit 数学尺度**下探测 T9：
 
 ```bash
-python run.py --models T3 T9 --wrappers sigmoid --backend both --train-neural --nn-epochs 150 --metrics all
+python run.py --models T9-sig --metrics M017 M018 M020 --operator-scale inverse --pairs all --u-points 100 --x-points 100 --angles 181
 ```
 
-For fast numerical tests, use `--u-points 8 --x-points 24 --sweep-steps 21 --angles 19`. By default `--u-points` and `--x-points` are respectively **24 and 100 quadrature nodes**, not simulated individuals or trials. `--x-mode axis_sweeps` scans each input dimension separately, with other X coordinates at 0.5. `--operator-bank none` disables the M017–M024 family for faster simpler runs.
+比较解析函数与神经逼近（神经端目前是小型连续输出 MLP，为未来 MP/NP 留好共同接口）：
 
-The historical finite difference defaults, exposed as generic quadrature controls, are `--x-first-step-fraction .02` and `--x-second-step-fraction .10` times the numerical stimulus SD. Relative operator energy filters are `--operator-v1-min-relative-energy 1e-4`, `--operator-v2-min-relative-energy .01`.
-
-## Shared analytic / neural interface
-
-Both backends implement `predict(x, theta, scale)`. The first differentiable surrogate is a small MLP trained using sampled `(theta,X,Y)`; frozen network parameters do not change during rotations. The same differentiable bank, U-sweep and numerical operator quadrature are used for `eta'` and `F'`. A future MP/NP approximator can provide the same backend interface.
-
-All outputs are saved under the Git-ignored `outputs/toy_rotation/`:
-
-```text
-outputs/toy_rotation/T9/sigmoid/raw/u2_u3/
-  metrics_by_angle.csv          # columns angle_deg, M001, ..., M024
-  metric_optima.csv             # M IDs, minimum angle and true-axis value
-  metric_heatmap.png            # angles on X; metric IDs on Y
-  metric_curves.png
-  xu_effect_map.png
-  operator_v1_v2_curves.png   # retained math provenance, not separate pipeline
-  settings.json
-# When --backend both:
-  analytic/metrics_by_angle.csv
-  neural/metrics_by_angle.csv
-  paired_metrics_by_angle.csv
-  paired_overlay_curves.png
-  paired_error_heatmap.png
-# Generic operator matrices, saved independently of the rotated angles:
-.../analytic/functional_operator_matrices.npz
+```bash
+python run.py --models T3-id T9-sig --backend both --train-neural --nn-epochs 120 --metrics M001 M004 M017 M018
 ```
 
-As a mathematical test bed, good agreement of function values does **not** guarantee matched derivatives or identical best rotation angles. A metric may provably favor a wrong coordinate system: for instance, M006 prefers a 45-degree mixture in T3. Such negative results are intentional.
+结果全部保存在 `outputs/toy_rotation/` 下。每个 T/后缀/坐标对均产生 `metrics_by_angle.csv`、`metric_heatmap.png`、`metric_curves.png`、`metric_optima.csv`；`--backend both` 还输出解析/网络曲线与差异热力图。
+
+## 扩展原则
+
+1. **新增 T10：** 新建 `toy_models/t10.py`；使用 `@register_model("T10",k=...,dx=...,description=...,eta_bounds=(L,H))` 注册**基础连续函数与完整定义域的解析范围**。六种变体的 Y 范围自动推导，不需要给每个版本写一套公式。
+2. **新增输出变换：** 仅在 `transforms.py` 登记后缀、数学前向、逆函数可用性、神经输出头和区间映射；对所有 T 模型自动生效。
+3. **新增 M025：** 在 `metrics/specs.py` 末尾注册名称、公式、计算方式与含义，再向公共算子/指标实现添加方法；不为特定 T 编写指标。
+4. **数学范围不等于样本范围：** 各参数/X 的 $[0,1]$ 是物理参考定义域；toy 文档给出严格 $\eta,Y$ 理论区间。神经近似只自动满足包装器固有值域，可能偏离某个 T 模型更窄的边界。
+5. **共享数学算子：** 神经端的函数值、梯度、高阶导数与解析端分别验证；不因旧版方法曾在 NP 任务中成功就断言 0° 必然最小。
+6. **迁移旧命令：** `--models T9 --wrappers sigmoid` 改为 `--models T9-sig`；`--analysis-scale inverse-link` 改为 `--analysis-scale inverse`。
+
+**一切实验输出仅在 gitignored 的 `outputs/` 内；源码、模型定义、指标定义和文档放在 GitHub。**

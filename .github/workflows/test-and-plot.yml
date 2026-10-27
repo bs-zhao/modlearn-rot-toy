@@ -1,9 +1,9 @@
-name: Toy diagnostics
+name: Toy regression
 on:
   push:
   workflow_dispatch:
 jobs:
-  analytic-benchmark:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -11,13 +11,11 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python tests/test_toys.py
-      - run: python tests/test_dual_backend.py
-      - run: python tests/test_registry.py
-      - run: python tests/test_functional_operators.py
-      - name: Generate preview plots
-        run: python run.py --models T1 T3 --wrappers identity --u-points 8 --x-points 24 --sweep-steps 21 --angles 19
+      - run: python tests/test_core.py
+      - run: python tests/test_e2e.py
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: toy-rotation-preview
-          path: outputs/toy_rotation/
+          name: toy-smoke-logs
+          path: outputs/
+          if-no-files-found: ignore

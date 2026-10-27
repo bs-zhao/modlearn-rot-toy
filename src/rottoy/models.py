@@ -1,10 +1,12 @@
-"""Dynamic plugin-based toy registry; every theta and X coordinate is in [0,1]."""
+"""Only base toy generators T1,T2,... are registered here.
+
+A variant T9-sig combines a base generator and one continuous output transform.
+This module is also the sole parser of model variant identifiers.
+"""
 from dataclasses import dataclass
-import importlib
-import pkgutil
-import re
+import importlib,pkgutil,re
 import numpy as np
-import torch
+from .transforms import TRANSFORMS,apply_transform,analysis_transform
 
 @dataclass(frozen=True)
 class ToyModel:
@@ -13,57 +15,78 @@ class ToyModel:
     dx: int
     description: str
     identifiable: bool
+    eta_bounds: tuple
 
-MODELS = {}
-_GENERATORS = {}
-WRAPPERS = ("identity", "sigmoid", "square")
+@dataclass(frozen=True)
+class ToyVariant:
+    model: ToyModel
+    transform: str
+    @property
+    def id(self):return f"{self.model.name}-{self.transform}"
+    @property
+    def k(self):return self.model.k
+    @property
+    def dx(self):return self.model.dx
+    @property
+    def y_bounds(self):
+        from .transforms import transformed_bounds
+        return transformed_bounds(self.model.eta_bounds,self.transform)
 
-def register_model(name,k,dx,description,identifiable=True):
-    def deco(fn):
-        if not re.fullmatch(r"T[1-9][0-9]*",name) or name in MODELS or k<2 or dx<1:
-            raise ValueError(f"Invalid or duplicate model name/dimensions: {name}")
-        MODELS[name]=ToyModel(name,k,dx,description,identifiable)
+_GENERATORS={}
+MODELS={}
+
+def register_model(name,k,dx,description,identifiable=True,eta_bounds=None):
+    def decorator(fn):
+        if not re.fullmatch(r"T[1-9]\d*",name):raise ValueError("Toy name must be T1,T2,...")
+        if name in MODELS:raise ValueError(f"Duplicate toy {name}")
+        if k<2 or dx<1:raise ValueError("Expected >=2 parameters and >=1 X dimension")
+        if eta_bounds is None or len(eta_bounds)!=2:
+            raise ValueError(f"{name} must specify analytic eta_bounds=(lower,upper)")
+        low,high=map(float,eta_bounds)
+        if not np.isfinite(low) or not np.isfinite(high) or low>high:
+            raise ValueError(f"Invalid bounds for {name}: {eta_bounds}")
+        MODELS[name]=ToyModel(name,k,dx,description,identifiable,(low,high))
         _GENERATORS[name]=fn
         return fn
-    return deco
+    return decorator
 
 def discover_models():
     from . import toy_models
-    for item in pkgutil.iter_modules(toy_models.__path__,toy_models.__name__+"."):
-        if not item.name.rsplit(".",1)[-1].startswith("_"):
-            importlib.import_module(item.name)
+    for module in pkgutil.iter_modules(toy_models.__path__,toy_models.__name__+"."):
+        if not module.name.rsplit(".",1)[-1].startswith("_"):
+            importlib.import_module(module.name)
+
+def get_variant(identifier):
+    # Bare base names are an explicit alias for identity, for easy migration.
+    parts=identifier.split("-")
+    if len(parts)==1:parts.append("id")
+    if len(parts)!=2:raise ValueError("Expected Tn-suffix, e.g. T9-sig")
+    name,suffix=parts
+    if name not in MODELS:raise ValueError(f"Unknown toy: {name}. Use --list-models")
+    if suffix not in TRANSFORMS:raise ValueError(f"Unknown suffix: {suffix}; valid: {list(TRANSFORMS)}")
+    return ToyVariant(MODELS[name],suffix)
+
+def variant_names():
+    return [f"{model}-{suffix}" for model in MODELS for suffix in TRANSFORMS]
 
 def generator(name,x,theta):
-    if name not in MODELS:raise ValueError(f"Unknown model {name}. Available: {list(MODELS)}")
-    if x.shape[-1]!=MODELS[name].dx or theta.shape[-1]!=MODELS[name].k:
-        raise ValueError("Incorrect X or theta dimensionality")
+    m=MODELS[name]
+    if x.shape[-1]!=m.dx or theta.shape[-1]!=m.k:
+        raise ValueError(f"{name} requires X dim {m.dx} and theta dim {m.k}")
     return _GENERATORS[name](x,theta)
 
-def wrapper(y,name):
-    if name=="identity": return y
-    if name=="sigmoid": return torch.sigmoid(y)
-    if name=="square": return y.square()
-    raise ValueError(name)
-
-def transform_output(y,link,analysis_scale="raw"):
-    if analysis_scale=="raw":return y
-    if analysis_scale=="log":return torch.log(y.clamp_min(1e-20))
-    if analysis_scale=="inverse-link":
-        if link!="sigmoid":raise ValueError("Only sigmoid admits inverse-link")
-        return torch.logit(y.clamp(min=1e-12,max=1-1e-12))
-    raise ValueError(analysis_scale)
-
-def evaluate(name,link,x,theta,analysis_scale="raw"):
-    return transform_output(wrapper(generator(name,x,theta),link),link,analysis_scale)
+def evaluate(variant,x,theta,scale="raw"):
+    v=get_variant(variant) if isinstance(variant,str) else variant
+    y=apply_transform(generator(v.model.name,x,theta),v.transform)
+    return analysis_transform(y,v.transform,scale)
 
 def plane_rotation(k,i,j,angle_deg):
-    if not 0<=i<j<k:raise ValueError("0 <= i < j < K required")
+    if not 0<=i<j<k:raise ValueError("Need 0 <= i < j < K")
     r=np.eye(k)
     c,s=np.cos(np.deg2rad(angle_deg)),np.sin(np.deg2rad(angle_deg))
     r[i,i]=r[j,j]=c
-    r[i,j]=-s
-    r[j,i]=s
+    r[i,j]=-s;r[j,i]=s
     return r
 
 discover_models()
-MODELS=dict(sorted(MODELS.items(),key=lambda pair:int(pair[0][1:])))
+MODELS=dict(sorted(MODELS.items(),key=lambda item:int(item[0][1:])))
