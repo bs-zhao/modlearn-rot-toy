@@ -10,6 +10,9 @@ def check_markdown(path):
     text=path.read_text(encoding="utf8")
     if "\\|" in text:
         raise AssertionError(f"{path}: LaTeX \\| can break Markdown table parsing; use \\lVert / \\rVert")
+    # The README renderer rejects this macro and falls back to raw LaTeX.
+    if r"\\operatorname" in text:
+        raise AssertionError(f"{path}: unsupported \\operatorname; use simple math operators")
     if "§" in text:
         raise AssertionError(f"{path}: unresolved placeholder")
     if len(re.findall(r"(?m)^\$\$$",text))%2:

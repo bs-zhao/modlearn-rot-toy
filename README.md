@@ -83,7 +83,7 @@ python run.py --models T3-id T9-sig --backend both --train-neural --nn-epochs 12
 **版本约定：** 原 CR3 最终选择概率是 $P(A)=\sigma(\eta_{11})$，所以 **`T11-sig` = 原 CR3 完整的确定性概率函数**；**`T11-id` = 去掉最外层 sigmoid 的 $\eta_{11}$**。`T11-sq/tanh/sp/exp` 都是直接将不同外层函数套在 $\eta_{11}$ 上，**不是再对 $\sigma(\eta_{11})$ 做变换**。权重函数内部的 sigmoid 保持不变。这里不抽样 Bernoulli choice。
 
 
-T11 复现原项目 CR3 的基本 logit 数学式，具有四个归一化 Toy 参数和六个单位立方体 X 输入。原 CR3 的货币金额（美元）及 $\alpha,\lambda,\gamma,\tau$ 的物理取值范围由 T11 内部确定性映射还原；采用原 $w(p;\gamma)=\sigma(\gamma\operatorname{logit}p)$，不是其他形式的 CPT 权重。**保留函数公式，不复制 CR3 500-trial 设计/概率先验；所有 T11 输出都是连续值**。
+T11 复现原项目 CR3 的基本 logit 数学式，具有四个归一化 Toy 参数和六个单位立方体 X 输入。原 CR3 的货币金额（美元）及 $\alpha,\lambda,\gamma,\tau$ 的物理取值范围由 T11 内部确定性映射还原；采用原 $w(p;\gamma)=\sigma(\gamma\log\frac{p}{1-p})$，不是其他形式的 CPT 权重。**保留函数公式，不复制 CR3 500-trial 设计/概率先验；所有 T11 输出都是连续值**。
 
 ```bash
 python run.py --models T11-sig --metrics all --rotation-mode pair --pairs all --backend analytic --u-points 24 --x-points 100 --angles 73 --sweep-steps 61

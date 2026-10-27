@@ -22,7 +22,7 @@ $R$ 是正交旋转。**旋转后 $u$ 不必仍位于 $[0,1]^K$**，但相应的
 | **`-sig`** | $\sigma(t)=1/(1+e^{-t})$ | $(0,1)$ | 是；logit | 有界饱和，但**不是 Bernoulli** |
 | **`-sq`** | $t^2$ | $[0,\infty)$ | 否 | 损失符号，引入平方和乘积 |
 | **`-tanh`** | $\tanh(t)$ | $(-1,1)$ | 是；atanh | 对称饱和 |
-| **`-sp`** | $\operatorname{sp}(t)=\log(1+e^t)$ | $(0,\infty)$ | 是 | 正值且光滑，近指数/线性 |
+| **`-sp`** | $\mathrm{sp}(t)=\log(1+e^t)$ | $(0,\infty)$ | 是 | 正值且光滑，近指数/线性 |
 | **`-exp`** | $e^t$ | $(0,\infty)$ | 是；log | 正值和乘性效应 |
 
 上表的“固有值域”是变换作用于全部实数时的值域；**具体 toy 的 $Y$ 有更窄的实际理论上下界**，详见下方第 3 节。
@@ -97,16 +97,28 @@ $$
 
 $$
 \begin{aligned}
-\eta_{11}=\tau\Big[&
-\sigma(\gamma\operatorname{logit}\tilde p_A)\left(\frac{g_A}{100}\right)^\alpha
--\lambda\sigma(\gamma\operatorname{logit}\widetilde{1-p_A})\left(\frac{\ell_A}{100}\right)^\alpha\\
-&-\sigma(\gamma\operatorname{logit}\tilde p_B)\left(\frac{g_B}{100}\right)^\alpha
-+\lambda\sigma(\gamma\operatorname{logit}\widetilde{1-p_B})\left(\frac{\ell_B}{100}\right)^\alpha
+\eta_{11}=\tau\Big[
+&\sigma\!\left(\gamma\log\frac{q_A}{1-q_A}\right)
+ \left(\frac{g_A}{100}\right)^\alpha
+-\lambda\sigma\!\left(\gamma\log\frac{r_A}{1-r_A}\right)
+ \left(\frac{\ell_A}{100}\right)^\alpha\\
+&-\sigma\!\left(\gamma\log\frac{q_B}{1-q_B}\right)
+ \left(\frac{g_B}{100}\right)^\alpha
++\lambda\sigma\!\left(\gamma\log\frac{r_B}{1-r_B}\right)
+ \left(\frac{\ell_B}{100}\right)^\alpha
 \Big].
 \end{aligned}
 $$
 
-T11 中 $\tilde p=\operatorname{clip}(p,10^{-12},1-10^{-12})$、$\widetilde{1-p}=\operatorname{clip}(1-p,10^{-12},1-10^{-12})$。T11-id 返回上面的 logit；T11-sig 再加**最外层** sigmoid，得到原 CR3 的连续概率函数。式中概率加权本身的 sigmoid 不受后缀影响。
+其中 $L\in\{A,B\}$，概率与补概率按原 CR3 代码分别裁剪：
+
+$$
+q_L=\min(1-\varepsilon,\max(\varepsilon,p_L)),\qquad
+r_L=\min(1-\varepsilon,\max(\varepsilon,1-p_L)),\qquad
+\varepsilon=10^{-12}.
+$$
+
+**T11-id** 是上述基础 logit；**T11-sig** 再套最外层 sigmoid，得到原 CR3 的连续概率函数。公式内部用于概率加权的 sigmoid 始终保留。
 
 ### 参数、输入与输出范围
 

@@ -36,7 +36,7 @@ $$
 
 $X_t$、$\theta_m$ 在**固定原始物理区间** $[0,1]^{D}$、$[0,1]^K$ 取样，$u_m=R\theta_m$。当旋转改变时仍使用同一批物理节点，从而比较相同函数区域。`--x-points`、`--u-points` 是数值积分点数，不是 500 次试验或若干被试。
 
-记 $\operatorname{off}(A)=A-\operatorname{diag}(\operatorname{diag}A)$。数值上，导数主要通过 PyTorch autodiff 生成一次公共 derivative bank，再用旋转链式法则获得新的 U 轴梯度；积分用等权 Sobol 求积（没有假设精确解析积分）。
+记 $\mathrm{off}(A)=A-\mathrm{diag}(\mathrm{diag}A)$。数值上，导数主要通过 PyTorch autodiff 生成一次公共 derivative bank，再用旋转链式法则获得新的 U 轴梯度；积分用等权 Sobol 求积（没有假设精确解析积分）。
 
 ## 2. 全部已实现指标速查表
 
@@ -45,7 +45,7 @@ $X_t$、$\theta_m$ 在**固定原始物理区间** $[0,1]^{D}$、$[0,1]^K$ 取�
 | **M001** | `xu_group_l1` · XU 组 L1 | 跨 X/U 的各 U 轴 XU 梯度 RMS | 某些 U 轴是否独占 X 敏感性 | 备选 |
 | **M002** | `xu_energy_concentration` · XU 能量集中 | 组能量比例的 $1-\sum p_k^2$ | 高维影响是否集中在少数 U 轴 | 备选 |
 | **M003** | `local_xu_l1` · 局部 XU 稀疏 | 每点每个 X 梯度行的归一化 L1 | 局部是否单轴，T5/T9 有失败反例 | 负对照 |
-| **M004** | `grad_xcov_offdiag` · 梯度 X 协方差 JD | $\mathbb E_U\operatorname{Cov}_X(g)$ 的非对角比例 | 梯度随 X 改变的相关性 | 备选 |
+| **M004** | `grad_xcov_offdiag` · 梯度 X 协方差 JD | $\mathbb E_U\mathrm{Cov}_X(g)$ 的非对角比例 | 梯度随 X 改变的相关性 | 备选 |
 | **M005** | `grad_gram_offdiag` · 未中心化 Gram JD | $\mathbb E_{X,U}gg^\top$ 的非对角比例 | 总梯度方向间的混合 | 备选 |
 | **M006** | `uu_offdiag` · UU 交叉曲率比例 | UU Hessian 的非对角能量 | T3 中 45° 可能错误最优 | 负对照 |
 | **M007** | `uu_diagonal` · UU 自身曲率比例 | UU Hessian 的对角能量 | 与 M006 互补，非独立普适目标 | 诊断 |
@@ -76,7 +76,7 @@ $X_t$、$\theta_m$ 在**固定原始物理区间** $[0,1]^{D}$、$[0,1]^K$ 取�
 $$
 e_k=\sqrt{\mathbb E_{X,U}\sum_jG_{jk}^2},
 \quad p_k=\frac{e_k^2}{\sum_l e_l^2},
-\quad C=\mathbb E_U[\operatorname{Cov}_X(g(X,U))],
+\quad C=\mathbb E_U[\mathrm{Cov}_X(g(X,U))],
 \quad B=\mathbb E_{X,U}[gg^\top].
 $$
 
@@ -87,8 +87,8 @@ $$
 \mathrm{M001}&=\frac{\sum_ke_k}{\sqrt K\sqrt{\sum_ke_k^2}},\\
 \mathrm{M002}&=1-\sum_kp_k^2,\\
 \mathrm{M003}&=\mathbb E_{\lVert G_j\rVert_2>0}\frac{\lVert G_j\rVert_1}{\lVert G_j\rVert_2},\\
-\mathrm{M004}&=\frac{\lVert \operatorname{off}(C)\rVert_F^2}{\lVert C\rVert_F^2},\\
-\mathrm{M005}&=\frac{\lVert \operatorname{off}(B)\rVert_F^2}{\lVert B\rVert_F^2},\\
+\mathrm{M004}&=\frac{\lVert \mathrm{off}(C)\rVert_F^2}{\lVert C\rVert_F^2},\\
+\mathrm{M005}&=\frac{\lVert \mathrm{off}(B)\rVert_F^2}{\lVert B\rVert_F^2},\\
 \mathrm{M006}&=\frac{\mathbb E_{X,U}\sum_{k\ne l}H_{kl}^2}{\mathbb E_{X,U}\lVert H\rVert_F^2},\\
 \mathrm{M007}&=\frac{\mathbb E_{X,U}\sum_{k}H_{kk}^2}{\mathbb E_{X,U}\lVert H\rVert_F^2},\\
 \mathrm{M008}&=\mathbb E_{X,U}\lVert \nabla_uh\rVert_2^2,\\
@@ -98,7 +98,7 @@ $$
 \end{aligned}
 $$
 
-计算细节：M003 对局部梯度范数低于数值阈值的行不计入平均；M004 **先在每个 U 位置对 X 中心化**再对 U 积分，不能误写成 $\operatorname{Cov}_{X,U}$；M005 是未中心化外积。M006+M007 在 Hessian 非零时为 1。零分母的指标代码使用保护值/返回 0，不能把数学上的不可判定解释为“找到了正确轴”。
+计算细节：M003 对局部梯度范数低于数值阈值的行不计入平均；M004 **先在每个 U 位置对 X 中心化**再对 U 积分，不能误写成 $\mathrm{Cov}_{X,U}$；M005 是未中心化外积。M006+M007 在 Hessian 非零时为 1。零分母的指标代码使用保护值/返回 0，不能把数学上的不可判定解释为“找到了正确轴”。
 
 M008–M011 都是**旋转不变量或与旋转无关的检验量**：横轴旋转角度时它们应该形成近似水平线。它们帮助检验实现是否正确，不能作为区分角度的旋转损失。
 
@@ -117,8 +117,8 @@ $$
 \begin{aligned}
 \mathrm{M012}&=\frac1K\sum_k
 \frac{\min_{\alpha_x,\beta_x}\mathbb E_{s,X}
- (S_k(s,X)-\alpha_X-\beta_Xs)^2}{\operatorname{Var}_{s,X}(S_k)},\\
-\mathrm{M013}&=\min_k\mathbb E_X\operatorname{Var}_s\left[
+ (S_k(s,X)-\alpha_X-\beta_Xs)^2}{\mathrm{Var}_{s,X}(S_k)},\\
+\mathrm{M013}&=\min_k\mathbb E_X\mathrm{Var}_s\left[
 \frac{S_k(s,X)}{\lVert (S_k(s,x_t))_t\rVert_2}\right],\\
 \mathrm{M014}&=\min_k\left[1-\frac{\sigma_1(S_k)^2}{\lVert S_k\rVert_F^2}\right],\\
 \mathrm{M015}&=\frac1K\sum_k\mathbb E_{s,X}
@@ -129,7 +129,7 @@ $$
 \end{aligned}
 $$
 
-M013 的 $S_k$ 向量和 M014 的整个矩阵使用有限样本范数；$\operatorname{Var}$ 用等权节点经验方差。M016 的四角函数值是在中心 $\theta_0\pm\delta R_{k,:}\pm\delta R_{l,:}$ 评价，默认 $\delta=0.2$。代码对于非常小的方差或范数设置数值阈值。
+M013 的 $S_k$ 向量和 M014 的整个矩阵使用有限样本范数；$\mathrm{Var}$ 用等权节点经验方差。M016 的四角函数值是在中心 $\theta_0\pm\delta R_{k,:}\pm\delta R_{l,:}$ 评价，默认 $\delta=0.2$。代码对于非常小的方差或范数设置数值阈值。
 
 **注意：** M013、M014 对 $k$ 取最小值，只检验是否存在某个简单方向，而非所有轴都与真实参数一一对应。T2 的基础函数对任何线性坐标变换都沿单轴仿射，因此 M012 不能唯一识别 T2。
 
@@ -201,7 +201,7 @@ $$
 $$
 J_{\mathcal A}(R)=
 \frac{1}{|\mathcal A|}\sum_{\alpha\in\mathcal A}
-\lVert \operatorname{off}(R\widetilde K_\alpha R^\top)\rVert_F^2.
+\lVert \mathrm{off}(R\widetilde K_\alpha R^\top)\rVert_F^2.
 $$
 
 当算子集合为空时，实现返回 0；该值表示**没有算子信息**，不是“完美恢复”。程序把原算子、保留矩阵和能量保存为 `functional_operators.npz`，可单独核对。
@@ -230,8 +230,8 @@ I_w=\mathbb E_{\Theta,X}\left[
 $$
 
 $$
-\boxed{\mathrm{M023}=\lVert \operatorname{off}(I_w(R))\rVert_F^2,\qquad
-\mathrm{M024}=\operatorname{tr}(I_w(R)).}
+\boxed{\mathrm{M023}=\lVert \mathrm{off}(I_w(R))\rVert_F^2,\qquad
+\mathrm{M024}=\mathrm{tr}(I_w(R)).}
 $$
 
 M024 对正交旋转**严格不变**；M023 **未除以** $\lVert I_w\rVert_F^2$，因此不可直接与归一化的 M004/M005 比绝对数值大小。
