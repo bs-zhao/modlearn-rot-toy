@@ -1,0 +1,20 @@
+name: Toy diagnostics
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  analytic-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt
+      - run: python tests/test_toys.py
+      - name: Generate preview plots
+        run: python run.py --models T1 T3 --wrappers identity --theta-samples 8 --x-samples 24 --sweep-steps 21 --angles 19
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toy-rotation-preview
+          path: outputs/toy_rotation/
