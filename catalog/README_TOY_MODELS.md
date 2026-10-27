@@ -29,143 +29,108 @@ $R$ 是正交旋转。**旋转后 $u$ 不必仍位于 $[0,1]^K$**，但相应的
 
 **T11 特别说明：** T11 与其他 toy 一样使用单位立方体数学输入；其四个归一化参数分别还原成 CR3 物理参数，X 中四个金额坐标还原到美元单位。这样既保留原 CR3 效用公式，也维持统一 Toy 数值积分接口。
 
-## 2. 每个 toy 的参数、X 范围与基础 $\eta$ 范围
+## 2. 模型公式速查
 
-所有参数和 X 均在 $[0,1]$。下表重复列出每个模型的独立变量，以便明确维数与参数名，而不是只说一个总规则。
+**每个 Toy 一个完整的基础生成公式**；不同输出版本统一由第 1 节的后缀函数作用于该式，不重复定义模型。
 
-| ID | 真实参数与**各自**取值范围 | 输入 X 与**各自**取值范围 | 基础生成函数 $\eta_T(X,\theta)$ | 理论基础输出 $\eta_T$ 范围 |
-|---|---|---|---|---|
-| **T1** | $a,b\in[0,1]$ | $x\in[0,1]$ | $ax^b$ | $[0,1]$ |
-| **T2** | $a,b,c\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1+bx_2+c$ | $[0,3]$ |
-| **T3** | $a,b\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1+abx_2$ | $[0,2]$ |
-| **T4** | $a,b,c,d\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1^b+cdx_2^b$ | $[0,2]$ |
-| **T5** | $a,b,c,d\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1+bx_1^2+cx_2+d$ | $[0,4]$ |
-| **T6** | $a,b,c,d\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1+bx_2+cx_1x_2+d$ | $[0,4]$ |
-| **T7** | $a,b\in[0,1]$ | $x\in[0,1]$ | $ae^{bx}$ | $[0,e]$ |
-| **T8** | $a,b,c,d\in[0,1]$ | $x_1,x_2,x_3\in[0,1]$ | $ax_1^b+cdx_2^b+cx_3$ | $[0,3]$ |
-| **T9** | $b_1,b_2,b_3,b_4\in[0,1]$ | $X_{1A},X_{1B},X_{2A},X_{2B}\in[0,1]$ | 见下方完整公式 | $[-A,1+A]$ |
-| **T10** | $a,b,c,d\in[0,1]$ | $x_1,x_2\in[0,1]$ | $ax_1^b+acx_2^b+d$ | $[0,3]$ |
-| **T11** | $\theta^*_\alpha,\theta^*_\lambda,\theta^*_\gamma,\theta^*_\tau\in[0,1]$，映射为 CR3 四参数 | $x_1,\ldots,x_6\in[0,1]$；金额映射到 $0$–$200$ USD | $\tau[V(A)-V(B)]$（见下方） | $[-B,B]$ |
-
-其中
+**T1**
 
 $$
-A=2\sqrt3+\frac{3\sqrt5}{2}\approx6.8182,
-\qquad 1+A\approx7.8182.
+\eta_1=ax^b
 $$
 
-**T9 的上下界不是随便把公式各项独立求和估计出来的。** 因为 $b_1$ 的系数恒为正、$X_{1A}$ 与 $X_{1B}$ 同时以单调相反方向进入两项，真正的最小值可在 $(b_1,X_{1A},X_{1B},X_{2A},X_{2B})=(0,0,1,0,1)$ 且 $b_2=b_3=b_4=1$ 取得；最大值可在 $(1,1,0,1,0)$ 且 $b_2=b_3=b_4=1$ 取得。这些上下界是精确的闭域极值（对使用内部节点的数值求积而言是理论上下界）。
-
-### 各基础函数的数学结构
-
-**T1：幂函数，幅度与指数。** $\eta=ax^b$；在 $a,x>0$ 时 $\log\eta=\log a+b\log x$，可以检验幅度与形状分离。
-
-**T2：线性效应与偏置。** $\eta=ax_1+bx_2+c$；$H_{\theta\theta}=0$，该性质在任意线性旋转后保持。它是原 C1 的**简化类比**，并非 C1 逐项原始公式。
-
-**T3：真实参数乘积。** $\eta=ax_1+abx_2$，$H_{ab}=\begin{psmallmatrix}0&x_2\\x_2&0\end{psmallmatrix}$。45° 混合后原本的 $ab$ 变成 $u_1^2-u_2^2$，仅罚 UU 非对角项会错选。
-
-**T4：不可识别的乘积。** $\eta=ax_1^b+cdx_2^b$；在非退化区域内函数只能看到 $cd$，不能分别识别 $c,d$ 的尺度。
-
-**T5：同一 X 上的线性/二次。** $\eta=ax_1+bx_1^2+cx_2+d$；局部 $\partial_{x_1}\nabla_\theta\eta=(1,2x_1,0,0)$ 可同时涉及两个真实参数。
-
-**T6：X 的混合项。** $\eta=ax_1+bx_2+cx_1x_2+d$；有 $\partial_{x_1x_2}\eta=c$，适合 XXU 类型指标。
-
-**T7：指数函数。** $\eta=ae^{bx}$；在 $a>0$ 时 $\log\eta=\log a+bx$。
-
-**T8：T4 的额外独立通道。** $\eta=ax_1^b+cdx_2^b+cx_3$；增加 $cx_3$，用于 T4 的可识别性对照。
-
-**T9：原项目 C2 生成公式作为统一 T 编号。** 按顺序 $X=(X_{1A},X_{1B},X_{2A},X_{2B})$，参数 $\theta=(b_1,b_2,b_3,b_4)$：
+**T2**
 
 $$
-\boxed{
+\eta_2=ax_1+bx_2+c
+$$
+
+**T3**
+
+$$
+\eta_3=ax_1+abx_2
+$$
+
+**T4**
+
+$$
+\eta_4=ax_1^b+cdx_2^b
+$$
+
+**T5**
+
+$$
+\eta_5=ax_1+bx_1^2+cx_2+d
+$$
+
+**T6**
+
+$$
+\eta_6=ax_1+bx_2+cx_1x_2+d
+$$
+
+**T7**
+
+$$
+\eta_7=ae^{bx}
+$$
+
+**T8**
+
+$$
+\eta_8=ax_1^b+cdx_2^b+cx_3
+$$
+
+**T9**
+
+$$
+\eta_9=b_1+\sqrt3\,b_2(X_{1A}-X_{1B})+\frac{3\sqrt5}{2}b_3(X_{1A}^2-X_{1B}^2)+\sqrt3\,b_4(X_{2A}-X_{2B})
+$$
+
+**T10**
+
+$$
+\eta_{10}=ax_1^b+acx_2^b+d
+$$
+
+**T11**
+
+$$
 \begin{aligned}
-\eta_9(X,\theta)={}&b_1+\sqrt3\,b_2(X_{1A}-X_{1B})\\
-&+\frac{\sqrt5}{2}b_3
-\left[(3X_{1A}^2-1)-(3X_{1B}^2-1)\right]\\
-&+\sqrt3\,b_4(X_{2A}-X_{2B}).
-\end{aligned}}
+\eta_{11}=\tau\Big[&
+\sigma(\gamma\operatorname{logit}\tilde p_A)\left(\frac{g_A}{100}\right)^\alpha
+-\lambda\sigma(\gamma\operatorname{logit}\widetilde{1-p_A})\left(\frac{\ell_A}{100}\right)^\alpha\\
+&-\sigma(\gamma\operatorname{logit}\tilde p_B)\left(\frac{g_B}{100}\right)^\alpha
++\lambda\sigma(\gamma\operatorname{logit}\widetilde{1-p_B})\left(\frac{\ell_B}{100}\right)^\alpha
+\Big].
+\end{aligned}
 $$
 
-`T9-sig` 的 $Y=\sigma(\eta_9)$ 是**连续的 Sigmoid 输出值**；这个项目不将它作为二分类 choice 进行抽样。T9 的参数与 X 范围是当前 toy 统一的 $[0,1]$，因此不等于原经验实验所用的参数分布与刺激设计。
+T11 中 $\tilde p=\operatorname{clip}(p,10^{-12},1-10^{-12})$、$\widetilde{1-p}=\operatorname{clip}(1-p,10^{-12},1-10^{-12})$。T11-id 返回上面的 logit；T11-sig 再加**最外层** sigmoid，得到原 CR3 的连续概率函数。式中概率加权本身的 sigmoid 不受后缀影响。
 
-**T10：幅度、共享指数、比例参数与加性偏置。**
+### 参数、输入与输出范围
 
-$$
-\boxed{\eta_{10}(x_1,x_2;a,b,c,d)=ax_1^b+acx_2^b+d.}
-$$
+各 Toy 的**每个参数和 X 坐标**都在 $[0,1]$。T11 使用下方定义的物理单位映射。
 
-$a,b,c,d,x_1,x_2\in[0,1]$。$a$ 是共同幅度，$b$ 为两项共享指数，$c$ 控制第二项相对第一项的幅度，$d$ 为加性偏置。$\eta_{10}\in[0,3]$，连续 Sigmoid 版本 $Y=\sigma(\eta_{10})\in[1/2,\sigma(3)]$。
+| ID | 参数 | X | 基础 $\eta_T$ 理论边界 |
+|---|---|---|---|
+| **T1** | $a,b$ | $x$ | $[0,1]$ |
+| **T2** | $a,b,c$ | $x_1,x_2$ | $[0,3]$ |
+| **T3** | $a,b$ | $x_1,x_2$ | $[0,2]$ |
+| **T4** | $a,b,c,d$ | $x_1,x_2$ | $[0,2]$ |
+| **T5** | $a,b,c,d$ | $x_1,x_2$ | $[0,4]$ |
+| **T6** | $a,b,c,d$ | $x_1,x_2$ | $[0,4]$ |
+| **T7** | $a,b$ | $x$ | $[0,e]$ |
+| **T8** | $a,b,c,d$ | $x_1,x_2,x_3$ | $[0,3]$ |
+| **T9** | $b_1,b_2,b_3,b_4$ | $X_{1A},X_{1B},X_{2A},X_{2B}$ | $[-A,1+A]$ |
+| **T10** | $a,b,c,d$ | $x_1,x_2$ | $[0,3]$ |
+| **T11** | $\theta^*_\alpha,\theta^*_\lambda,\theta^*_\gamma,\theta^*_\tau$ | $x_1,\ldots,x_6$ | $\subseteq[-B,B]$ |
 
-**T11：CR3 原始四参数效用公式（单位立方体 Toy 接口）。**
+其中 $A=2\sqrt3+3\sqrt5/2\approx6.8182$，$B=24\cdot2^{0.999}\approx47.96674$。T11 的 $[-B,B]$ 是**保守输出界**（保证覆盖输出，未必是最窄值域）；T1–T10 给出解析边界。
 
-源代码为 [原项目 s0_cr2_design_recovery.py](https://github.com/Cognition-Decision-Modeling-Lab/modlearn-rot-2/blob/main/experiment/choice/research_based/s0_cr2_design_recovery.py)；CR3 直接复用其中 CR2-4P 的 `logits` 和 `lottery_value`。**这里采用的是原 CR3 的 logit-domain weighting，而不是 TK1992 概率权重**：
+**T11 的单位映射：** $(g_A,\ell_A,p_A,g_B,\ell_B,p_B)=(200x_1,200x_2,x_3,200x_4,200x_5,x_6)$，其中 $g,\ell$ 是非负美元金额；$\alpha=0.02+0.979\theta^*_\alpha$、$\lambda=0.3+4.7\theta^*_\lambda$、$\gamma=0.02+0.979\theta^*_\gamma$、$\tau=0.5+3.5\theta^*_\tau$。它保留 [原 CR3 数学公式](https://github.com/Cognition-Decision-Modeling-Lab/modlearn-rot-2/blob/main/experiment/choice/research_based/s0_cr2_design_recovery.py)，但使用 Toy 的统一数值求积节点，并非原数据集的 500 个刺激或其参数先验。
 
-$$
-\boxed{
-\begin{aligned}
-w(p;\gamma)&=\sigma\!\left(\gamma\operatorname{logit}(p)\right),\\
-V(g,\ell,p;\alpha,\lambda,\gamma)
-&=w(p;\gamma)\left(\frac{g}{100}\right)^\alpha
--\lambda w(1-p;\gamma)\left(\frac{\ell}{100}\right)^\alpha,\\
-\eta_{11}(X,\theta)&=\tau\left[V(g_A,\ell_A,p_A)-V(g_B,\ell_B,p_B)\right].
-\end{aligned}}
-$$
-
-其中 $g,\ell$ 均为**非负美元金额**，$p$ 为获得收益的概率。原 CR3 数值代码对 $\operatorname{logit}$ 中的概率使用 $[10^{-12},1-10^{-12}]$ 裁剪，T11 保持同一数值规则。
-
-为维持 Toy 工程的单位立方体采样，网络/公式输入是
-
-$$
-X=(x_1,\ldots,x_6)\in[0,1]^6,\qquad
-(g_A,\ell_A,p_A,g_B,\ell_B,p_B)
-=(200x_1,200x_2,x_3,200x_4,200x_5,x_6).
-$$
-
-四个归一化参数 $\theta^*=(\theta^*_\alpha,\theta^*_\lambda,\theta^*_\gamma,\theta^*_\tau)\in[0,1]^4$ 映射为**原 CR3 的物理参数区间**：
-
-$$
-\boxed{
-\begin{aligned}
-\alpha&=0.02+0.979\,\theta^*_\alpha,\\
-\lambda&=0.3+4.7\,\theta^*_\lambda,\\
-\gamma&=0.02+0.979\,\theta^*_\gamma,\\
-\tau&=0.5+3.5\,\theta^*_\tau.
-\end{aligned}}
-$$
-
-因此 $\alpha,\gamma\in[0.02,0.999]$，$\lambda\in[0.3,5]$，$\tau\in[0.5,4]$。归一化坐标仍与四个真实参数一一对应，但**Toy 的均匀数值积分不等于原 CR3 的参数先验或 500 项固定刺激设计**。
-
-令
-
-$$
-B=4(1+5)2^{0.999}\approx47.96674.
-$$
-
-因为 $0\le w\le1$ 且 $g/100,\ell/100\in[0,2]$，每个选项的价值处于 $[-5\cdot2^{0.999},\,2^{0.999}]$，故 $\eta_{11}\in[-B,B]$。这是连续理论端点下的紧界；在概率端点执行浮点裁剪后，保证覆盖所有输出，但不保证完全达到理论端点。
-
-`T11-sig` 的连续响应为 $Y=\sigma(\eta_{11})\in[\sigma(-B),\sigma(B)]$。该 Toy **不生成 Bernoulli choice、被试或试次**，六种输出变换以及所有 M 指标均共用同一个接口。
-
-
-**原模型与六种后缀的一一对应（避免重复套 sigmoid）：**
-
-原 CR3 的 *完整选择概率函数* 是
-$P_{\mathrm{CR3}}(A\mid X,\theta)=\sigma(\eta_{11}(X,\theta)).$
-
-因此 **`T11-sig` 就是原 CR3 的完整确定性概率映射**；**`T11-id` 是只去掉原 CR3 最外层 sigmoid 后的 logit**。注意：价值函数内部的 $w(p;\gamma)=\sigma(\gamma\operatorname{logit}p)$ **必须保留**，并未去掉全部 sigmoid。
-
-其余后缀也**全部直接作用于同一个 $\eta_{11}$**，而非再套到已 sigmoid 的概率之上：
-
-| 版本 | 连续函数 $Y(X,\theta)$ | 相对于原 CR3 |
-|---|---|---|
-| `T11-id` | $\eta_{11}$ | 只去掉最外层 sigmoid |
-| `T11-sig` | $\sigma(\eta_{11})$ | **原 CR3 的完整输出公式（不抽样）** |
-| `T11-sq` | $\eta_{11}^2$ | 以平方替代外层 sigmoid |
-| `T11-tanh` | $\tanh(\eta_{11})$ | 以 tanh 替代外层 sigmoid |
-| `T11-sp` | $\log(1+e^{\eta_{11}})$ | 以 softplus 替代外层 sigmoid |
-| `T11-exp` | $e^{\eta_{11}}$ | 以 exp 替代外层 sigmoid |
-
-这只是统一 Toy **函数版本**约定，不能把 `T11-sq` 理解成 $[\sigma(\eta_{11})]^2$，也不能把 `T11-sig` 理解成 $\sigma(\sigma(\eta_{11}))$。原 CR3 随机抽取 Bernoulli choice 的步骤并不属于这个连续函数测试台。
-
+**结构速记：** T1/T7 幅度与形状；T2 线性效应；T3 $ab$ 乘积；T4 $cd$ 不可识别；T5 同一 X 的线性与二次效应；T6 $x_1x_2$ 项；T8 为 T4 加入 $cx_3$；T9 原 C2 函数；T10 共享指数及 $ac$ 项；T11 原 CR3 效用差函数。
 
 ## 3. 每个 toy 的六种 $Y$ 理论取值范围
 
@@ -199,7 +164,7 @@ $P_{\mathrm{CR3}}(A\mid X,\theta)=\sigma(\eta_{11}(X,\theta)).$
 | **T10** | $[0,Q(3)]$ | $[\log2,P(3)]$ | $[1,e^3]$ |
 | **T11** | $[Q(-B),Q(B)]$ | $[P(-B),P(B)]$ | $[e^{-B},e^B]$ |
 
-**区分理论输出范围和有限数据观察范围：** 上表是解析公式在完整合法闭区间上的严格上下界（幂函数相关边界按连续极限理解）。`--u-points` / `--x-points` 只改变数值求积精度；不应该根据样本最小值/最大值重写这里的理论上下界。
+**区分理论输出范围和有限数据观察范围：** T1–T10 为解析边界（幂函数端点按极限理解）。T11 六种输出范围由保守界 $[-B,B]$ 映射得到，未必是精确最窄区间。`--u-points` / `--x-points` 只改变数值求积精度；不应该根据样本最小值/最大值重写这里的理论上下界。
 
 另外，以上是**解析生成函数**的严格范围。神经近似 $F$ 的输出头会约束到每种变换本身的值域，但不一定严格满足特定 T 模型更窄的上下界。要检查 $F$ 是否越界，应将神经预测与这些理论范围对照。
 
