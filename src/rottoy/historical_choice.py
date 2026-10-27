@@ -150,6 +150,14 @@ def build_historical_banks(backend,wrapper,x,theta,n_subjects,n_x,
     return HistoricalBanks(fisher,eigen,n1,m1,e1,n2,m2,e2,f2,
                            tuple(names),matrices,energies,h1,h2)
 
+def original_predictive_rank(eigenvalues,relative_threshold=.001,cumulative_energy=.995):
+    """Historical Fisher rank-selection diagnostic; NOT applied to toy coordinates."""
+    eigenvalues=np.maximum(np.asarray(eigenvalues,dtype=float),0.)
+    if not len(eigenvalues) or eigenvalues.sum()<=1e-15:return 0
+    n_rel=int(np.sum(eigenvalues/max(eigenvalues[0],1e-15)>=relative_threshold))
+    n_energy=int(np.searchsorted(np.cumsum(eigenvalues)/eigenvalues.sum(),cumulative_energy)+1)
+    return min(len(eigenvalues),max(1,n_rel,n_energy))
+
 def _jd(mats,R):
     if not len(mats):return 0.
     rotated=np.einsum("ik,mkl,jl->mij",R,mats,R,optimize=True)
