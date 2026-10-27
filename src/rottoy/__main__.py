@@ -8,7 +8,7 @@ from .operators import derivative_bank
 from .metrics import local_metrics,sweep_metrics
 from .plots import make_figures,plot_xu_effect_map,plot_backend_comparison
 from .backends import AnalyticBackend,train_neural,load_neural,checkpoint_path
-from .historical_choice import build_historical_banks,historical_metrics,save_historical_banks
+from .historical_choice import (build_historical_banks,historical_metrics,save_historical_banks,original_predictive_rank)
 
 def writerows(path,rows):
     if not rows:return
@@ -115,6 +115,11 @@ def run(a):
                 if historical:
                     settings["historical_v1_v2"]={
                         kind:dict(fisher_eigenvalues=hb.fisher_eigenvalues.tolist(),
+                            fisher_predictive_active_rank=original_predictive_rank(
+                                hb.fisher_eigenvalues,
+                                relative_threshold=a.historical_active_relative_threshold,
+                                cumulative_energy=a.historical_active_cumulative_energy),
+                            active_rank_is_diagnostic_only=True,
                             v1_operator_names=list(hb.names_v1),
                             v2_operator_names=list(hb.names_v2),
                             v1_operator_raw_energies=hb.energies_v1.tolist(),
@@ -163,6 +168,8 @@ def cli():
     p.add_argument("--historical-first-step-fraction",type=float,default=.02)
     p.add_argument("--historical-second-step-fraction",type=float,default=.10)
     p.add_argument("--historical-v1-min-relative-energy",type=float,default=1e-4)
+    p.add_argument("--historical-active-relative-threshold",type=float,default=.001)
+    p.add_argument("--historical-active-cumulative-energy",type=float,default=.995)
     p.add_argument("--historical-v2-min-relative-energy",type=float,default=.01)
     p.add_argument("--pairs",default="first")
     p.add_argument("--theta-samples",type=int,default=24)
