@@ -108,7 +108,7 @@ Here `--x-samples 100` means 100 points **per X dimension**, giving `100 * D_X` 
 
 ## Representative functional metrics
 
-The benchmark currently calculates **16** metrics, not all proposed library metrics:
+The benchmark calculates **16 original metrics plus 8 historical choice Fisher/v1/v2 metrics** by default (24 total), not all proposed library metrics:
 
 | Family | Implemented indicators |
 |---|---|
@@ -143,7 +143,7 @@ The heatmap is normalized **independently by row**. Constant metrics are shown i
 
 `python tests/test_toys.py` verifies output wrappers, T2 zero UU Hessian, T3's incorrect 45° Hessian diagonalization, T3 affine U sweeps at true axes, T1 log-stimulus gradient covariance, orthogonal invariants, T4/T4ID fixed-theta Jacobian ranks, and independent autograd vs rotated chain rule.
 
-A GitHub Actions job runs these checks and uploads preview plots as an artifact after each push.
+A GitHub Actions job runs these checks plus `python tests/test_historical_choice.py` and uploads preview plots as an artifact after each push.
 
 ## Scope
 
