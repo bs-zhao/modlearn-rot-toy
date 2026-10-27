@@ -11,7 +11,11 @@ METRIC_ORDER=[
 "grad_xcov_offdiag","grad_gram_offdiag","uu_offdiag","uu_diagonal",
 "sweep_affine","sweep_shape_min","sweep_rank1_min","sweep_curvature",
 "rectangle_uu","u_grad_energy","xu_total_energy",
-"x_gradient_energy","x_curvature_energy"
+"x_gradient_energy","x_curvature_energy",
+"historical_v1_jd","historical_v2_jd",
+"historical_v1_level","historical_v1_first",
+"historical_v2_second_diagonal","historical_v2_second_mixed",
+"historical_fisher_offdiag","historical_fisher_trace"
 ]
 
 def make_figures(rows,directory:Path,title:str):
@@ -46,6 +50,22 @@ def make_figures(rows,directory:Path,title:str):
     fig.suptitle(title+" | selected metric curves",fontweight="bold")
     fig.savefig(directory/"metric_curves.png",dpi=145)
     plt.close(fig)
+    if "historical_v1_jd" in names:
+        history=("historical_v1_jd","historical_v2_jd","historical_v1_level",
+                 "historical_v1_first","historical_v2_second_diagonal",
+                 "historical_v2_second_mixed","historical_fisher_offdiag")
+        fig,ax=plt.subplots(figsize=(10,5.5),layout="constrained")
+        for name in history:
+            if name in names:
+                ax.plot(xs,data[names.index(name)],lw=1.8,label=name)
+        ax.axvline(0,color="gray",ls="--",lw=1.)
+        ax.set_xlabel("Rotation angle (degrees)")
+        ax.set_ylabel("Raw (un-normalized) operator loss")
+        ax.grid(alpha=.25)
+        ax.legend(fontsize=8)
+        ax.set_title(title+" | historical Fisher/JD metrics")
+        fig.savefig(directory/"historical_v1_v2_curves.png",dpi=145)
+        plt.close(fig)
     summary=[]
     for idx,name in enumerate(names):
         best=int(np.argmin(data[idx]));zero=int(np.argmin(abs(xs)))
