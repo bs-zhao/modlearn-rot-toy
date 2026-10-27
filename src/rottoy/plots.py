@@ -54,8 +54,8 @@ def make_figures(rows,directory:Path,title:str):
         ax.set_ylabel("Raw (un-normalized) operator loss")
         ax.grid(alpha=.25)
         ax.legend(fontsize=8)
-        ax.set_title(title+" | historical Fisher/JD metrics")
-        fig.savefig(directory/"historical_v1_v2_curves.png",dpi=145)
+        ax.set_title(title+" | operator-family v1/v2 metrics")
+        fig.savefig(directory/"operator_v1_v2_curves.png",dpi=145)
         plt.close(fig)
     summary=[]
     for idx,name in enumerate(names):
