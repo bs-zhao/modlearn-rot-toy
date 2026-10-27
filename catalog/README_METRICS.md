@@ -49,13 +49,13 @@ $X_t$、$\theta_m$ 在**固定原始物理区间** $[0,1]^{D}$、$[0,1]^K$ 取�
 | **M005** | `grad_gram_offdiag` · 未中心化 Gram JD | $\mathbb E_{X,U}gg^\top$ 的非对角比例 | 总梯度方向间的混合 | 备选 |
 | **M006** | `uu_offdiag` · UU 交叉曲率比例 | UU Hessian 的非对角能量 | T3 中 45° 可能错误最优 | 负对照 |
 | **M007** | `uu_diagonal` · UU 自身曲率比例 | UU Hessian 的对角能量 | 与 M006 互补，非独立普适目标 | 诊断 |
-| **M008** | `u_grad_energy` · U 总梯度能量 | $\mathbb E\|\nabla_uh\|^2$ | 正交旋转不变 | 不变量 |
-| **M009** | `xu_total_energy` · XU 总能量 | $\mathbb E\|G\|_F^2$ | 正交旋转不变 | 不变量 |
-| **M010** | `x_gradient_energy` · X 总梯度能量 | $\mathbb E\|\nabla_Xh\|^2$ | 固定物理节点时旋转不变 | 不变量 |
-| **M011** | `x_curvature_energy` · XX Hessian 总能量 | $\mathbb E\|Q\|_F^2$ | 固定物理节点时旋转不变 | 不变量 |
+| **M008** | `u_grad_energy` · U 总梯度能量 | $\mathbb E\lVert \nabla_uh\rVert^2$ | 正交旋转不变 | 不变量 |
+| **M009** | `xu_total_energy` · XU 总能量 | $\mathbb E\lVert G\rVert_F^2$ | 正交旋转不变 | 不变量 |
+| **M010** | `x_gradient_energy` · X 总梯度能量 | $\mathbb E\lVert \nabla_Xh\rVert^2$ | 固定物理节点时旋转不变 | 不变量 |
+| **M011** | `x_curvature_energy` · XX Hessian 总能量 | $\mathbb E\lVert Q\rVert_F^2$ | 固定物理节点时旋转不变 | 不变量 |
 | **M012** | `sweep_affine` · U 轴仿射残差 | 单轴 sweep 对直线拟合的残差 | 每个坐标是否线性/仿射影响响应 | 备选 |
 | **M013** | `sweep_shape_min` · 最简单响应形状轴 | 归一化响应向量的变化方差 | 是否**存在**一条纯比例轴 | 诊断 |
-| **M014** | `sweep_rank1_min` · 最小秩一残差 | $1-\sigma_1(S)^2/\|S\|_F^2$ | 是否**存在**一条近秩一的轴 | 诊断 |
+| **M014** | `sweep_rank1_min` · 最小秩一残差 | $1-\sigma_1(S)^2/\lVert S\rVert_F^2$ | 是否**存在**一条近秩一的轴 | 诊断 |
 | **M015** | `sweep_curvature` · U 扫描二阶粗糙度 | sweep 曲线的二阶差分平方 | 单轴非线性 | 备选 |
 | **M016** | `rectangle_uu` · UU 矩形交互 | 四角交叉差分平方 | 全局非局部交互；T3 可错选 | 备选/负对照 |
 | **M017** | `operator_v1_jd` · v1 功能算子联合对角化 | Level + First-X 的矩阵 JD | 是否存在共同功能轴 | 备选 |
@@ -86,15 +86,15 @@ $$
 \begin{aligned}
 \mathrm{M001}&=\frac{\sum_ke_k}{\sqrt K\sqrt{\sum_ke_k^2}},\\
 \mathrm{M002}&=1-\sum_kp_k^2,\\
-\mathrm{M003}&=\mathbb E_{\|G_j\|_2>0}\frac{\|G_j\|_1}{\|G_j\|_2},\\
-\mathrm{M004}&=\frac{\|\operatorname{off}(C)\|_F^2}{\|C\|_F^2},\\
-\mathrm{M005}&=\frac{\|\operatorname{off}(B)\|_F^2}{\|B\|_F^2},\\
-\mathrm{M006}&=\frac{\mathbb E_{X,U}\sum_{k\ne l}H_{kl}^2}{\mathbb E_{X,U}\|H\|_F^2},\\
-\mathrm{M007}&=\frac{\mathbb E_{X,U}\sum_{k}H_{kk}^2}{\mathbb E_{X,U}\|H\|_F^2},\\
-\mathrm{M008}&=\mathbb E_{X,U}\|\nabla_uh\|_2^2,\\
-\mathrm{M009}&=\mathbb E_{X,U}\|G\|_F^2,\\
-\mathrm{M010}&=\mathbb E_{X,U}\|\nabla_Xh\|_2^2,\\
-\mathrm{M011}&=\mathbb E_{X,U}\|Q\|_F^2.
+\mathrm{M003}&=\mathbb E_{\lVert G_j\rVert_2>0}\frac{\lVert G_j\rVert_1}{\lVert G_j\rVert_2},\\
+\mathrm{M004}&=\frac{\lVert \operatorname{off}(C)\rVert_F^2}{\lVert C\rVert_F^2},\\
+\mathrm{M005}&=\frac{\lVert \operatorname{off}(B)\rVert_F^2}{\lVert B\rVert_F^2},\\
+\mathrm{M006}&=\frac{\mathbb E_{X,U}\sum_{k\ne l}H_{kl}^2}{\mathbb E_{X,U}\lVert H\rVert_F^2},\\
+\mathrm{M007}&=\frac{\mathbb E_{X,U}\sum_{k}H_{kk}^2}{\mathbb E_{X,U}\lVert H\rVert_F^2},\\
+\mathrm{M008}&=\mathbb E_{X,U}\lVert \nabla_uh\rVert_2^2,\\
+\mathrm{M009}&=\mathbb E_{X,U}\lVert G\rVert_F^2,\\
+\mathrm{M010}&=\mathbb E_{X,U}\lVert \nabla_Xh\rVert_2^2,\\
+\mathrm{M011}&=\mathbb E_{X,U}\lVert Q\rVert_F^2.
 \end{aligned}
 $$
 
@@ -119,8 +119,8 @@ $$
 \frac{\min_{\alpha_x,\beta_x}\mathbb E_{s,X}
  (S_k(s,X)-\alpha_X-\beta_Xs)^2}{\operatorname{Var}_{s,X}(S_k)},\\
 \mathrm{M013}&=\min_k\mathbb E_X\operatorname{Var}_s\left[
-\frac{S_k(s,X)}{\|(S_k(s,x_t))_t\|_2}\right],\\
-\mathrm{M014}&=\min_k\left[1-\frac{\sigma_1(S_k)^2}{\|S_k\|_F^2}\right],\\
+\frac{S_k(s,X)}{\lVert (S_k(s,x_t))_t\rVert_2}\right],\\
+\mathrm{M014}&=\min_k\left[1-\frac{\sigma_1(S_k)^2}{\lVert S_k\rVert_F^2}\right],\\
 \mathrm{M015}&=\frac1K\sum_k\mathbb E_{s,X}
 \left[\frac{S_k(s+\Delta s,X)-2S_k(s,X)+S_k(s-\Delta s,X)}
 {(\Delta s)^2}\right]^2,\\
@@ -188,7 +188,7 @@ $$
 
 ### 5.3 单算子归一化、能量筛选与联合对角损失
 
-定义每个算子原始能量 $e_\alpha=\|K_\alpha\|_F$。v1 仅包含 Level 和 First-X；v2 包含 Level、First-X 和两种 Second-X。两个集合分别以各自的最大算子能量筛选：
+定义每个算子原始能量 $e_\alpha=\lVert K_\alpha\rVert_F$。v1 仅包含 Level 和 First-X；v2 包含 Level、First-X 和两种 Second-X。两个集合分别以各自的最大算子能量筛选：
 
 $$
 \mathcal A_r=\{\alpha:e_\alpha>\varepsilon,\ e_\alpha\ge\rho_r\max_{\beta\in r}e_\beta\},
@@ -196,12 +196,12 @@ $$
 \rho_1=10^{-4},\quad\rho_2=0.01.
 $$
 
-对保留算子定义 $\widetilde K_\alpha=K_\alpha/\|K_\alpha\|_F$，最终
+对保留算子定义 $\widetilde K_\alpha=K_\alpha/\lVert K_\alpha\rVert_F$，最终
 
 $$
 J_{\mathcal A}(R)=
 \frac{1}{|\mathcal A|}\sum_{\alpha\in\mathcal A}
-\|\operatorname{off}(R\widetilde K_\alpha R^\top)\|_F^2.
+\lVert \operatorname{off}(R\widetilde K_\alpha R^\top)\rVert_F^2.
 $$
 
 当算子集合为空时，实现返回 0；该值表示**没有算子信息**，不是“完美恢复”。程序把原算子、保留矩阵和能量保存为 `functional_operators.npz`，可单独核对。
@@ -230,11 +230,11 @@ I_w=\mathbb E_{\Theta,X}\left[
 $$
 
 $$
-\boxed{\mathrm{M023}=\|\operatorname{off}(I_w(R))\|_F^2,\qquad
+\boxed{\mathrm{M023}=\lVert \operatorname{off}(I_w(R))\rVert_F^2,\qquad
 \mathrm{M024}=\operatorname{tr}(I_w(R)).}
 $$
 
-M024 对正交旋转**严格不变**；M023 **未除以** $\|I_w\|_F^2$，因此不可直接与归一化的 M004/M005 比绝对数值大小。
+M024 对正交旋转**严格不变**；M023 **未除以** $\lVert I_w\rVert_F^2$，因此不可直接与归一化的 M004/M005 比绝对数值大小。
 
 ## 6. 数学、数值和神经逼近的解释原则
 
