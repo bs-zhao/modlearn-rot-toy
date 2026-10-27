@@ -70,6 +70,56 @@ python run.py --models T3-id T9-sig --backend both --train-neural --nn-epochs 12
 
 结果全部保存在 `outputs/toy_rotation/` 下。每个 T/后缀/坐标对均产生 `metrics_by_angle.csv`、`metric_heatmap.png`、`metric_curves.png`、`metric_optima.csv`；`--backend both` 还输出解析/网络曲线与差异热力图。
 
+## 全部参数一起旋转：SO(K) 联合实验
+
+先前的 `--pairs all` 仅是**两两平面旋转的多组独立实验**。它不是多维联合旋转。现在用统一命令 `--rotation-mode`：
+
+| 模式 | 数学操作 | 输出 | 是否覆盖完整旋转空间 |
+|---|---|---|---|
+| `pair`（默认，兼容旧版） | 单个平面 `G_ij(phi)`；`--pairs all` 遍历每对 | `u1_u2/` 等角度曲线/热力图 | 否 |
+| `joint-path` | `R(phi)=G_K(c_K phi)···G_1(c_1 phi)`，**全部平面同时变化** | `joint_ramped/` 等角度曲线/热力图 | 否：只是 SO(K) 中的一条一维路径 |
+| `joint-search` | `R(phi_1,...,phi_D)`，`D=K(K-1)/2` 个角度独立变化 | `joint_search/` 中各指标优化结果/旋转矩阵图 | 搜索全部自由度；局部数值优化不保证全局最优 |
+| `all` | 上述三类全部运行 | 三类输出 | 包含完整自由度搜索 |
+
+对于 T8 (`K=4`)，联合旋转有**六个独立角度**（12、13、14、23、24、34）。它们采用按字典序固定的 Givens 乘积，确保任何评价矩阵都有 `R.T @ R = I` 且 `det R=+1`。
+
+**联合旋转路径（直接画与过去相同格式的图）：**
+
+```bash
+python run.py --models T8-id --metrics all --rotation-mode joint-path --joint-path ramped --u-points 24 --x-points 100 --angles 73 --sweep-steps 61
+```
+
+这条路径横轴仍是 `phi`，但每个平面实际旋转 `c_ij * phi` 度。内置路径权重：`balanced`（全相同）、`alternating`（正负交替）、`ramped`（不同幅度，默认）、`random`（固定随机种子）。所有路径在 **phi=0** 时都等于真实坐标系 `R=I`。`rotation_matrices.npz` 保存每个画图角度对应的**完整 K×K 矩阵**及平面顺序，不能将一条路径得到的最小值当作全 SO(K) 最小值。
+
+**真正的六角度独立优化（推荐先选少量 M 指标）：**
+
+```bash
+python run.py --models T8-id --metrics M004 M006 M017 M018 --rotation-mode joint-search --u-points 24 --x-points 100 --joint-samples 64 --joint-restarts 3 --joint-maxiter 100
+```
+
+该模式先对统一的物理 X/θ 数值节点构建指标所需算子（只计算一次），再对每个选中的 M 指标**单独**执行带随机起点的 L-BFGS-B 数值优化；不使用监督真参数方向作为损失。每项记录 identity 基准指标、找到的最小指标、全部六个角度、完整 R、它与最近的带符号置换轴的距离；`flat` 或正交不变量不进行无意义的寻优。
+
+输出目录：
+
+```text
+outputs/toy_rotation/T8/id/raw/
+  joint_ramped/
+    metric_heatmap.png
+    metric_curves.png
+    metric_optima.csv
+    metrics_by_angle.csv
+    rotation_matrices.npz
+  joint_search/
+    joint_candidates.csv          # 多个完整四维旋转的同组指标
+    joint_search_summary.csv     # 每项指标在完整自由度空间发现的最小值
+    best_rotations.npz           # 每项最优的六角度及 4x4 矩阵
+    best_rotation_M018.png       # 按指标编号生成的系数矩阵热力图
+    joint_search_improvements.png
+    settings.json
+```
+
+`--backend both` 可以在解析 η 和网络 F 上分别执行相同流程，另有 `paired_joint_search_summary.csv`。**找到的最优值只是多起点局部搜索的结果，不是数学证明的全局最优。** 最优矩阵还应考虑坐标符号/置换等价，而非要求恰好 R=I。
+
 ## 扩展原则
 
 1. **新增 T10：** 新建 `toy_models/t10.py`；使用 `@register_model("T10",k=...,dx=...,description=...,eta_bounds=(L,H))` 注册**基础连续函数与完整定义域的解析范围**。六种变体的 Y 范围自动推导，不需要给每个版本写一套公式。
