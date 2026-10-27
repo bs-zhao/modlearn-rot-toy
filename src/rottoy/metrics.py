@@ -60,13 +60,15 @@ def local_metrics(bank,r,eps=1e-12):
         "x_curvature_energy":float(np.mean(np.sum(bank.hxx**2,axis=(-1,-2))))
     }
 
-def _eval(model,link,x,theta,scale="raw"):
+def _eval(model,link,x,theta,scale="raw",backend=None):
     with torch.no_grad():
-        y=evaluate(model,link,torch.as_tensor(np.array(x,copy=True),dtype=torch.float64),
-                   torch.as_tensor(np.array(theta,copy=True),dtype=torch.float64),scale)
+        xt=torch.as_tensor(np.array(x,copy=True),dtype=torch.float64)
+        tt=torch.as_tensor(np.array(theta,copy=True),dtype=torch.float64)
+        y=(backend.predict(xt,tt,scale) if backend is not None
+           else evaluate(model,link,xt,tt,scale))
     return y.detach().cpu().numpy()
 
-def sweep_metrics(model,link,r,x_bank,sweep_steps,sweep_radius,rect_step,analysis_scale="raw"):
+def sweep_metrics(model,link,r,x_bank,sweep_steps,sweep_radius,rect_step,analysis_scale="raw",backend=None):
     k=len(r);offsets=np.linspace(-sweep_radius,sweep_radius,sweep_steps)
     center=np.full(k,.5)
     if np.any(center[None,:]+offsets[:,None]*r[0][None,:]<0):
@@ -79,7 +81,7 @@ def sweep_metrics(model,link,r,x_bank,sweep_steps,sweep_radius,rect_step,analysi
         theta=center[None,:]+offsets[:,None]*r[axis][None,:]
         if theta.min()<-1e-10 or theta.max()>1+1e-10:raise ValueError("Theta outside [0,1]")
         expanded=np.repeat(theta,len(x_bank),axis=0)
-        y=_eval(model,link,xx,expanded,analysis_scale).reshape(sweep_steps,len(x_bank))
+        y=_eval(model,link,xx,expanded,analysis_scale,backend).reshape(sweep_steps,len(x_bank))
         fitted=D@(inv@y)
         scale=max(float(np.var(y)),1e-12)
         affine.append(float(np.mean((y-fitted)**2)/scale))
@@ -97,7 +99,7 @@ def sweep_metrics(model,link,r,x_bank,sweep_steps,sweep_radius,rect_step,analysi
             for si,sj in ((1,1),(1,-1),(-1,1),(-1,-1)):
                 theta=center+rect_step*(si*r[i]+sj*r[j])
                 if theta.min()<0 or theta.max()>1:raise ValueError("UU rectangle outside [0,1]")
-                out.append(_eval(model,link,x_bank,np.broadcast_to(theta,(len(x_bank),k)),analysis_scale))
+                out.append(_eval(model,link,x_bank,np.broadcast_to(theta,(len(x_bank),k)),analysis_scale,backend))
             diff=(out[0]-out[1]-out[2]+out[3])/(4*rect_step**2)
             rect.append(float(np.mean(diff**2)))
     return {

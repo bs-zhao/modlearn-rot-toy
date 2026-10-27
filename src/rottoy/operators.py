@@ -13,10 +13,11 @@ class DerivativeBank:
     y: np.ndarray
     hxx: np.ndarray
 
-def derivative_bank(model,link,x,theta,n_theta,n_x,analysis_scale="raw"):
+def derivative_bank(model,link,x,theta,n_theta,n_x,analysis_scale="raw",backend=None):
     xx=torch.tensor(x,dtype=torch.float64,requires_grad=True)
     tt=torch.tensor(theta,dtype=torch.float64,requires_grad=True)
-    yy=evaluate(model,link,xx,tt,analysis_scale)
+    yy=(backend.predict(xx,tt,analysis_scale) if backend is not None
+        else evaluate(model,link,xx,tt,analysis_scale))
     gt,gx=torch.autograd.grad(yy.sum(),(tt,xx),create_graph=True)
     K,D=tt.shape[1],xx.shape[1]
     ht=[]

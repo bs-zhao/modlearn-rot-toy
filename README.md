@@ -23,6 +23,25 @@ python run.py --models all --wrappers all --pairs all --theta-samples 24 --x-sam
 
 The default rotation scan is **-90 to +90 degrees** with 37 points, including the real parameter-aligned reference at 0 degrees. The `--pairs` option uses `first` (the u1/u2 plane), `all` (every coordinate pair) or a particular 1-based pair such as `1,3`.
 
+
+## Automatic toy-model discovery and paired eta/F diagnostics
+
+Add a Python module under `src/rottoy/toy_models/` with a function decorated by `@register_model("T100",k=2,dx=1,description="a*x**b")`; it will appear under `python run.py --list-models` and run via `--models T100 T1` without edits elsewhere. The separate T7 plugin is a working demonstration.
+
+The same metric bank supports `--backend analytic` (default), `--backend neural`, and `--backend both`. The neural backend currently uses a smooth MLP trained on simulated `(theta,X,Y)` samples. It approximates the exact wrapped response `Y`, and exposes `predict(x,theta,scale)` to the shared derivative/sweep code. Future MP or Neural Process decoders can implement that interface. Neural checkpoints are trained once per model/wrapper on physical theta/X in [0,1] and **not retrained at each rotation**.
+
+```bat
+python run.py --list-models
+python run.py --models T7 T3 --wrappers identity --theta-samples 8 --x-samples 32 --sweep-steps 21 --angles 19
+python run.py --models T1 T3 --wrappers identity --backend both --train-neural --nn-epochs 150
+python run.py --models T1 T3 --wrappers identity --backend both
+python tests/test_dual_backend.py
+```
+
+Paired outputs are saved below `outputs/toy_rotation/<MODEL>/<WRAPPER>/<SCALE>/<PAIR>/` with separate `analytic/` and `neural/` metric curves and heatmaps; `paired_overlay_curves.png`, `paired_error_heatmap.png`, and `paired_metrics_by_angle.csv` compare exact analytic and approximate neural indicators on **the same** rotations and probes. `settings.json` reports prediction, X/U gradient, and XX/XU/UU Hessian errors. Model/checkpoint output stays under ignored `outputs/`.
+
+**Important:** fitting function values well does not guarantee derivative or rotation-minimum agreement. MLP is a first surrogate adapter; it is not yet an MP/NP implementation.
+
 ## Test bed
 
 | Model | Analytic generator | Motivation |

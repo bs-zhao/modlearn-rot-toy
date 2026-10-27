@@ -71,3 +71,36 @@ def plot_xu_effect_map(bank,r,folder:Path,label:str):
     fig.colorbar(im,ax=ax,label="RMS |d2 h/dX dU|",shrink=.8)
     fig.savefig(folder/"xu_effect_map.png",dpi=145)
     plt.close(fig)
+
+def plot_backend_comparison(analytic_rows,neural_rows,folder,title):
+    """Compare F and eta on matching angle and metric grid."""
+    folder.mkdir(parents=True,exist_ok=True)
+    names=[m for m in METRIC_ORDER if m in analytic_rows[0]]
+    xs=np.array([r["angle_deg"] for r in analytic_rows],float)
+    if not np.allclose(xs,[r["angle_deg"] for r in neural_rows]):raise ValueError("Angle mismatch")
+    A=np.array([[r[m] for r in analytic_rows] for m in names],float)
+    F=np.array([[r[m] for r in neural_rows] for m in names],float)
+    scale=np.maximum(np.ptp(A,axis=1,keepdims=True),1e-10)
+    fig,ax=plt.subplots(figsize=(11,6.6),layout="constrained")
+    im=ax.imshow(np.abs(F-A)/scale,aspect="auto",cmap="magma",origin="upper",
+        extent=[xs[0]-(xs[1]-xs[0])/2,xs[-1]+(xs[1]-xs[0])/2,len(names)-.5,-.5])
+    ax.set_yticks(range(len(names)),names,fontsize=9)
+    ax.axvline(0,color="white",ls="--")
+    ax.set_xlabel("Rotation angle (degrees)")
+    ax.set_title(title+" | normalized absolute F - eta metric difference",fontsize=11)
+    fig.colorbar(im,ax=ax,label="Absolute gap / analytic angle range",shrink=.8)
+    fig.savefig(folder/"paired_error_heatmap.png",dpi=145);plt.close(fig)
+    show=["xu_group_l1","grad_xcov_offdiag","uu_offdiag","uu_diagonal","sweep_affine","rectangle_uu"]
+    fig,axes=plt.subplots(2,3,figsize=(12.5,7),layout="constrained")
+    for ax,name in zip(axes.flat,show):
+        if name in names:
+            idx=names.index(name)
+            ax.plot(xs,A[idx],label="analytic eta",lw=2)
+            ax.plot(xs,F[idx],label="neural F",ls="--",lw=2)
+        ax.axvline(0,color="gray",ls=":",lw=.8)
+        ax.set_title(name,fontsize=10);ax.set_xlabel("Rotation angle (degrees)")
+        ax.grid(alpha=.2)
+    axes.flat[0].legend(fontsize=8)
+    fig.suptitle(title+" | corresponding metrics")
+    fig.savefig(folder/"paired_overlay_curves.png",dpi=145);plt.close(fig)
+    return {m:float(np.mean((F[i]-A[i])**2)) for i,m in enumerate(names)}
