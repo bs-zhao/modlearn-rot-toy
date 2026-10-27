@@ -4,6 +4,14 @@
 
 The original C2 choice-probability formula, models with parameter interaction, and the formerly separate Fisher / first- and second-X-derivative function operators are **ordinary entries** in these registries. There are no C2-specific run commands, backend classes, or metric scripts. Both the exact analytic function `eta'` and a differentiable approximate network `F'` go through the same operators, numerical X/U quadrature, rotation sweeps, metric IDs and plots.
 
+
+## Reference catalogs (formulas and meanings)
+
+- **[Toy models — T1, T2, …](catalog/README_TOY_MODELS.md):** all registered generators, exact formulas, parameter/X definitions, wrappers and identifiability cautions.
+- **[Metrics — M001, M002, …](catalog/README_METRICS.md):** all implemented indicator formulas, exact numerical aggregation, interpretation, invariants and known failure cases.
+
+Update these two catalogs whenever appending a new registered T model or M indicator. They are reference documentation; the actual definitions live in `src/rottoy/toy_models/`, `src/rottoy/metrics.py`, and `src/rottoy/operators.py`.
+
 ## Model registry (append new T numbers indefinitely)
 
 | ID | Formula for the base `eta(X,theta)` | Source / role |
