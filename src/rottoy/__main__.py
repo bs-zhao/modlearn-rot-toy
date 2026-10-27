@@ -24,10 +24,10 @@ def run(args):
     summaries=[]
     for model in models:
         info=MODELS[model]
-        x,theta,_,xpoints=paired_grid(info.k,info.dx,args.theta_samples,args.x_samples,args.seed)
+        x,theta,_,xpoints=paired_grid(info.k,info.dx,args.theta_samples,args.x_samples,args.seed,args.x_mode)
         for link in wrappers:
             print(f"[{model}/{link}] analytic derivative bank...",flush=True)
-            bank=derivative_bank(model,link,x,theta,args.theta_samples,args.x_samples,args.analysis_scale)
+            bank=derivative_bank(model,link,x,theta,args.theta_samples,len(xpoints),args.analysis_scale)
             if not all(np.isfinite(getattr(bank,key)).all() for key in ("gtheta","htheta","hxtheta","gx","hxx","y")):
                 raise RuntimeError(f"Nonfinite derivatives: {model}/{link}")
             if args.pairs=="all":pairs=list(itertools.combinations(range(info.k),2))
@@ -75,6 +75,8 @@ def cli():
     p.add_argument("--pairs",default="first",help="first, all, or 1-based 1,2")
     p.add_argument("--theta-samples",type=int,default=24)
     p.add_argument("--x-samples",type=int,default=100)
+    p.add_argument("--x-mode",choices=("sobol","axis_sweeps"),default="sobol",
+                   help="X joint Sobol sampling, or sweep each X axis from 0 to 1 with others at .5")
     p.add_argument("--sweep-steps",type=int,default=101)
     p.add_argument("--angle-min",type=float,default=-90)
     p.add_argument("--angle-max",type=float,default=90)

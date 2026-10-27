@@ -39,6 +39,16 @@ Each generator supports **identity**, **sigmoid(eta)**, and **eta²** wrappers. 
 
 All physical theta and X coordinates lie in [0,1]. Quasi-Monte Carlo integration uses strictly interior nodes because e.g. d(x**b)/dx can diverge at x=0. Rotated u coordinates may lie outside [0,1]; the inverse-mapped physical theta always stays in [0,1]. The U-axis sweep uses theta = (.5,...,.5) + s*R[k,:], s in [-.45,.45]; rectangle probes use the same legal support.
 
+## X sampling and sweep resolution
+
+Native X dimensions and true parameter dimensions always lie in [0,1]. The default X integration uses joint Sobol sampling. You can instead sweep **each X dimension separately from 0 to 1** using midpoint nodes, holding other X coordinates at 0.5:
+
+```bat
+python run.py --models T3 --wrappers identity --x-mode axis_sweeps --x-samples 100 --sweep-steps 101 --output outputs/x_axis_sweeps
+```
+
+Here `--x-samples 100` means 100 points **per X dimension**, giving `100 * D_X` stimulus nodes. The derivative matrices and U-sweep output are then evaluated at these nodes. Use different output paths for different X sampling schemes to prevent overwriting experiment results.
+
 ## Representative functional metrics
 
 The benchmark currently calculates **16** metrics, not all proposed library metrics:

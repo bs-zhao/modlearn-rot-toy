@@ -11,9 +11,20 @@ def unit_grid(n):
     if n<3:raise ValueError("n>=3")
     return (np.arange(n,dtype=float)+.5)/n
 
-def paired_grid(k,dx,n_theta,n_x,seed):
+def sample_x(dx,n,seed,mode="sobol"):
+    if mode=="sobol":
+        return sobol_interior(dx,n,seed)
+    if mode=="axis_sweeps":
+        g=unit_grid(n)
+        x=np.full((dx,n,dx),.5,dtype=float)
+        for j in range(dx):x[j,:,j]=g
+        return x.reshape(dx*n,dx)
+    raise ValueError(f"Unknown X sampling mode {mode}")
+
+def paired_grid(k,dx,n_theta,n_x,seed,x_mode="sobol"):
     theta=sobol_interior(k,n_theta,seed)
-    x=sobol_interior(dx,n_x,seed+10007)
+    x=sample_x(dx,n_x,seed+10007,mode=x_mode)
+    n_x=len(x)
     xx=np.broadcast_to(x[None,:,:],(n_theta,n_x,dx)).reshape(-1,dx)
     tt=np.broadcast_to(theta[:,None,:],(n_theta,n_x,k)).reshape(-1,k)
     return xx,tt,theta,x
