@@ -120,7 +120,7 @@ outputs/toy_rotation/T9/sigmoid/raw/u2_u3/
   metric_heatmap.png            # angles on X; metric IDs on Y
   metric_curves.png
   xu_effect_map.png
-  historical_v1_v2_curves.png   # retained math provenance, not separate pipeline
+  operator_v1_v2_curves.png   # retained math provenance, not separate pipeline
   settings.json
 # When --backend both:
   analytic/metrics_by_angle.csv
