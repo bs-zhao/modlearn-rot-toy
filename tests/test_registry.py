@@ -20,8 +20,8 @@ import re
 project_root=Path(__file__).resolve().parents[1]
 models_doc=(project_root/"catalog"/"README_TOY_MODELS.md").read_text(encoding="utf-8")
 metrics_doc=(project_root/"catalog"/"README_METRICS.md").read_text(encoding="utf-8")
-listed_models=re.findall(r"(?m)^\\| \\*\\*(T\\d+)\\*\\* \\|",models_doc)
-listed_metrics=re.findall(r"(?m)^\\| \\*\\*(M\\d{3})\\*\\* \\|",metrics_doc)
+listed_models=re.findall(r"(?m)^\| \*\*(T\d+)\*\* \|",models_doc)
+listed_metrics=re.findall(r"(?m)^\| \*\*(M\d{3})\*\* \|",metrics_doc)
 assert listed_models==list(MODELS),f"Toy catalog out of sync: {listed_models} != {list(MODELS)}"
 assert listed_metrics==list(METRICS),f"Metric catalog out of sync: {listed_metrics} != {list(METRICS)}"
 
