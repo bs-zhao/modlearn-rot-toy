@@ -14,6 +14,7 @@ jobs:
       - run: python tests/test_docs_rendering.py
       - run: python tests/test_core.py
       - run: python tests/test_e2e.py
+      - run: python tests/test_joint_rotation.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
