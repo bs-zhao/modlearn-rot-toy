@@ -8,6 +8,7 @@ from .operators import derivative_bank
 from .metrics import local_metrics,sweep_metrics
 from .plots import make_figures,plot_xu_effect_map,plot_backend_comparison
 from .backends import AnalyticBackend,train_neural,load_neural,checkpoint_path
+from .historical_choice import build_historical_banks,historical_metrics,save_historical_banks
 
 def writerows(path,rows):
     if not rows:return
@@ -72,6 +73,19 @@ def run(a):
                 else:raise FileNotFoundError(f"No checkpoint at {path}; use --train-neural")
                 available["neural"]=nn
             banks={name:bank_for(a,b,model,link,x,theta,len(xpoints)) for name,b in available.items()}
+            historical={}
+            if not a.no_historical:
+                for kind,backend in available.items():
+                    print(f"[{model}/{link}/{kind}] building legacy v1/v2 functional operator banks...",flush=True)
+                    hb=build_historical_banks(backend,link,x,theta,a.theta_samples,len(xpoints),
+                        first_step_fraction=a.historical_first_step_fraction,
+                        second_step_fraction=a.historical_second_step_fraction,
+                        v1_min_relative_energy=a.historical_v1_min_relative_energy,
+                        v2_min_relative_energy=a.historical_v2_min_relative_energy)
+                    historical[kind]=hb
+                    dest=output/model/link/a.analysis_scale/("analytic" if a.backend=="both" else kind)
+                    dest.mkdir(parents=True,exist_ok=True)
+                    save_historical_banks(dest/"historical_v1_v2_operators.npz",hb)
             for i,j in pair_indices(info.k,a.pairs):
                 pname=f"u{i+1}_u{j+1}"
                 folder=output/model/link/a.analysis_scale/pname
@@ -84,6 +98,7 @@ def run(a):
                     for phi in angles:
                         R=plane_rotation(info.k,i,j,float(phi))
                         vals=local_metrics(banks[kind],R)
+                        if kind in historical: vals.update(historical_metrics(historical[kind],R))
                         vals.update(sweep_metrics(model,link,R,xpoints,a.sweep_steps,
                             a.sweep_radius,a.rectangle_step,a.analysis_scale,backend=backend))
                         rows.append(dict(angle_deg=round(float(phi),8),**vals))
@@ -97,6 +112,18 @@ def run(a):
                         scale=a.analysis_scale,**s) for s in summary)
                 settings=dict(model=model,wrapper=link,pair=pname,k=info.k,dx=info.dx,
                     identifiable=info.identifiable,training=train_meta,**vars(a))
+                if historical:
+                    settings["historical_v1_v2"]={
+                        kind:dict(fisher_eigenvalues=hb.fisher_eigenvalues.tolist(),
+                            v1_operator_names=list(hb.names_v1),
+                            v2_operator_names=list(hb.names_v2),
+                            v1_operator_raw_energies=hb.energies_v1.tolist(),
+                            v2_operator_raw_energies=hb.energies_v2.tolist(),
+                            first_derivative_steps=hb.steps_first.tolist(),
+                            second_derivative_steps=hb.steps_second.tolist(),
+                            fisher_coordinate_space="full theta (no active subspace truncation)",
+                            logit_scale="sigmoid link inverse, otherwise raw generator as logit")
+                        for kind,hb in historical.items()}
                 if a.backend=="both":
                     settings["metric_mse"]=plot_backend_comparison(both["analytic"],
                         both["neural"],folder,f"{model}/{link}/{pname}")
@@ -132,6 +159,11 @@ def cli():
     p.add_argument("--nn-lr",type=float,default=.002)
     p.add_argument("--nn-batch-size",type=int,default=512)
     p.add_argument("--analysis-scale",choices=("raw","log","inverse-link"),default="raw")
+    p.add_argument("--no-historical",action="store_true",help="Skip v1/v2 Fisher functional operators (faster)")
+    p.add_argument("--historical-first-step-fraction",type=float,default=.02)
+    p.add_argument("--historical-second-step-fraction",type=float,default=.10)
+    p.add_argument("--historical-v1-min-relative-energy",type=float,default=1e-4)
+    p.add_argument("--historical-v2-min-relative-energy",type=float,default=.01)
     p.add_argument("--pairs",default="first")
     p.add_argument("--theta-samples",type=int,default=24)
     p.add_argument("--x-samples",type=int,default=100)
