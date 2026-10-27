@@ -78,6 +78,18 @@ python run.py --models T3-id T9-sig --backend both --train-neural --nn-epochs 12
 
 结果全部保存在 `outputs/toy_rotation/` 下。每个 T/后缀/坐标对均产生 `metrics_by_angle.csv`、`metric_heatmap.png`、`metric_curves.png`、`metric_optima.csv`；`--backend both` 还输出解析/网络曲线与差异热力图。
 
+## T11：原 CR3 四参数效用公式
+
+T11 复现原项目 CR3 的基本 logit 数学式，具有四个归一化 Toy 参数和六个单位立方体 X 输入。原 CR3 的货币金额（美元）及 $\alpha,\lambda,\gamma,\tau$ 的物理取值范围由 T11 内部确定性映射还原；采用原 $w(p;\gamma)=\sigma(\gamma\operatorname{logit}p)$，不是其他形式的 CPT 权重。**保留函数公式，不复制 CR3 500-trial 设计/概率先验；所有 T11 输出都是连续值**。
+
+```bash
+python run.py --models T11-sig --metrics all --rotation-mode pair --pairs all --backend analytic --u-points 24 --x-points 100 --angles 73 --sweep-steps 61
+python run.py --models T11-sig --metrics all --rotation-mode joint-path --joint-path ramped --backend analytic --u-points 24 --x-points 100 --angles 73 --sweep-steps 61
+python run.py --models T11-sig --metrics M004 M017 M018 --rotation-mode joint-search --backend analytic --u-points 24 --x-points 100 --joint-samples 64 --joint-restarts 3 --joint-maxiter 100
+```
+
+按需以 `--operator-scale inverse` 分析 T11 的基础 logit 函数，而默认 `raw` 分析 Sigmoid 后的连续 Y。输出目录对应 `outputs/toy_rotation/T11/sig/raw/`。模型及变换后的理论范围详见 [Toy 模型目录](catalog/README_TOY_MODELS.md)。
+
 ## 全部参数一起旋转：SO(K) 联合实验
 
 先前的 `--pairs all` 仅是**两两平面旋转的多组独立实验**。它不是多维联合旋转。现在用统一命令 `--rotation-mode`：
