@@ -13,6 +13,7 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python tests/test_toys.py
       - run: python tests/test_dual_backend.py
+      - run: python tests/test_registry.py
       - run: python tests/test_functional_operators.py
       - name: Generate preview plots
         run: python run.py --models T1 T3 --wrappers identity --u-points 8 --x-points 24 --sweep-steps 21 --angles 19
