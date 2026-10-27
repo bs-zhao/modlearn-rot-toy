@@ -42,6 +42,44 @@ Paired outputs are saved below `outputs/toy_rotation/<MODEL>/<WRAPPER>/<SCALE>/<
 
 **Important:** fitting function values well does not guarantee derivative or rotation-minimum agreement. MLP is a first surrogate adapter; it is not yet an MP/NP implementation.
 
+
+## Original C2 binary-choice testbed and historical v1/v2 metrics
+
+The original [C2 generator](https://github.com/Cognition-Decision-Modeling-Lab/modlearn-rot-2/blob/main/src/modlearn_rot/generators/choice/c2_shared_x_quadratic.py) is now registered as **`C2`**. Native X feature order is `(X1_A, X1_B, X2_A, X2_B)`; native parameters are `(b1, b2, b3, b4)`. The exact choice logit is:
+
+```text
+eta = b1 + sqrt(3)*b2*(X1_A-X1_B)
+         + sqrt(5)/2*b3*((3*X1_A**2-1)-(3*X1_B**2-1))
+         + sqrt(3)*b4*(X2_A-X2_B)
+P(Y=1 | X, theta) = sigmoid(eta), 1 = option A
+```
+
+The toy plugin returns the **logit** `eta`; select `--wrappers sigmoid` to evaluate the actual choice probability `p`. Use `--analysis-scale inverse-link` to inspect the recovered choice logit. (The model's original X design was uniform **[-1,1]** and theta normal; this **toy** project deliberately uses [0,1] for all raw X and theta, as requested. The formula is identical but historical sampling distributions and numerical recovery results are not.)
+
+Run a compact benchmark comparing exact analytic `eta'` and a trained approximate neural `F'`:
+
+```bash
+python tests/test_historical_choice.py
+python run.py --list-models
+python run.py --models C2 --wrappers sigmoid --pairs 2,3 --backend analytic --theta-samples 8 --x-samples 24 --sweep-steps 21 --angles 19
+python run.py --models C2 --wrappers sigmoid --pairs all --backend both --train-neural --nn-epochs 150
+```
+
+The same CLI supports `--models C2 T1 T3`. No neural training is needed for analytic-only runs.
+
+**Historical [choice decoder_fisher_jointdiag v1](https://github.com/Cognition-Decision-Modeling-Lab/modlearn-rot-2/tree/main/experiment/rotation/choice/decoder_fisher_jointdiag/v1_distributional) and [v2](https://github.com/Cognition-Decision-Modeling-Lab/modlearn-rot-2/tree/main/experiment/rotation/choice/decoder_fisher_jointdiag/v2_higher_order) functional indicators** are on by default and use the **same X/theta samples and both function backends**:
+
+- **Binary Fisher:** `E[p(1-p)gg^T]`, `g=grad_theta log(p/(1-p))`, plus Fisher eigenvalues, offdiagonal energy and invariant trace. For the `sigmoid` wrapper, use the inverse logit to compute the gradient. For other wrappers, treat the wrapped response as a choice logit for this historical diagnostic.
+- **v1:** for each subject/parameter point, compute the mean log-odds gradient over its observed X samples and its mean first-X derivative `sd(X_j) d_j g`; form **outer product AFTER within-subject mean**. Normalize each operator by its Frobenius norm, filter raw operator energy below `1e-4` times maximum, then average rotated offdiagonal energy (`historical_v1_jd`).
+- **v2:** same level and first-X operators, plus `sd(X_j)**2 d_jj g` and `sd(X_j)*sd(X_l) d_jl g`. Filter below `0.01` of maximum, normalize each retained operator, and compute `historical_v2_jd`.
+- **Other plotted scalar rows:** v1 level/first and v2 diagonal-second/mixed-second group contributions; `historical_fisher_offdiag` and `historical_fisher_trace`. These are separate measurements, not automatically identifiable objectives.
+
+Historical finite differences match original recipes: first derivative step **0.02 × observed SD(X)**; second derivative step **0.10 × observed SD(X)**, with one-sided stencils within the legal [0,1] toy X box. Thresholds and steps are configurable using `--historical-first-step-fraction`, `--historical-second-step-fraction`, `--historical-v1-min-relative-energy`, and `--historical-v2-min-relative-energy`. Pass `--no-historical` for faster runs.
+
+**Important difference from the original pipeline:** in this analytic toy, all theta dimensions are retained, while the original v1/v2 first determined a predictive active subspace by eigenanalysis of Fisher in whitened NP latent `q`. The full Fisher eigenvalues are exported for comparison. These are faithful reproductions of the **orientation signatures, operator normalization and JD objective**, not a replication of NP active-space selection or empirical subject sampling.
+
+Per model/backend, the output includes `historical_v1_v2_operators.npz` (raw and retained operator matrices, names, energies, Fisher matrix/eigenvalues, finite-difference steps). The angle-based `metrics_by_angle.csv` and `metric_heatmap.png` now include the historical rows, with a dedicated `historical_v1_v2_curves.png` for v1 vs v2. Paired eta/F comparison files also include them.
+
 ## Test bed
 
 | Model | Analytic generator | Motivation |
