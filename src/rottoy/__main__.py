@@ -5,10 +5,10 @@ import numpy as np
 from .models import MODELS,WRAPPERS,plane_rotation
 from .sampling import paired_grid
 from .operators import derivative_bank
-from .metrics import local_metrics,sweep_metrics
+from .metrics import evaluate_metrics,METRICS,metric_id
 from .plots import make_figures,plot_xu_effect_map,plot_backend_comparison
 from .backends import AnalyticBackend,train_neural,load_neural,checkpoint_path
-from .historical_choice import (build_historical_banks,historical_metrics,save_historical_banks,original_predictive_rank)
+from .operators import build_operator_bank,save_operator_bank,operator_rank_diagnostic
 
 def writerows(path,rows):
     if not rows:return
@@ -32,7 +32,7 @@ def pair_indices(k,choice):
     return [pair]
 
 def bank_for(a,backend,model,wrapper,x,theta,x_count):
-    b=derivative_bank(model,wrapper,x,theta,a.theta_samples,x_count,a.analysis_scale,backend=backend)
+    b=derivative_bank(model,wrapper,x,theta,a.u_points,x_count,a.analysis_scale,backend=backend)
     for key in ("y","gtheta","gx","htheta","hxtheta","hxx"):
         if not np.isfinite(getattr(b,key)).all():
             raise RuntimeError(f"Nonfinite {key}: {model}/{wrapper}/{backend.kind}")
@@ -57,7 +57,7 @@ def run(a):
     summaries=[]
     for model in models:
         info=MODELS[model]
-        x,theta,_,xpoints=paired_grid(info.k,info.dx,a.theta_samples,a.x_samples,a.seed,a.x_mode)
+        x,theta,_,xpoints=paired_grid(info.k,info.dx,a.u_points,a.x_points,a.seed,a.x_mode)
         for link in wrappers:
             available={}
             train_meta=None
@@ -73,19 +73,19 @@ def run(a):
                 else:raise FileNotFoundError(f"No checkpoint at {path}; use --train-neural")
                 available["neural"]=nn
             banks={name:bank_for(a,b,model,link,x,theta,len(xpoints)) for name,b in available.items()}
-            historical={}
-            if not a.no_historical:
+            op_banks={}
+            if a.operator_bank=='all' and any(mid in a.selected_metrics for mid in a.operator_metric_ids):
                 for kind,backend in available.items():
-                    print(f"[{model}/{link}/{kind}] building legacy v1/v2 functional operator banks...",flush=True)
-                    hb=build_historical_banks(backend,link,x,theta,a.theta_samples,len(xpoints),
-                        first_step_fraction=a.historical_first_step_fraction,
-                        second_step_fraction=a.historical_second_step_fraction,
-                        v1_min_relative_energy=a.historical_v1_min_relative_energy,
-                        v2_min_relative_energy=a.historical_v2_min_relative_energy)
-                    historical[kind]=hb
+                    print(f"[{model}/{link}/{kind}] building function operator quadrature banks...",flush=True)
+                    hb=build_operator_bank(backend,link,x,theta,a.u_points,len(xpoints),
+                        first_step_fraction=a.x_first_step_fraction,
+                        second_step_fraction=a.x_second_step_fraction,
+                        v1_min_relative_energy=a.operator_v1_min_relative_energy,
+                        v2_min_relative_energy=a.operator_v2_min_relative_energy)
+                    op_banks[kind]=hb
                     dest=output/model/link/a.analysis_scale/("analytic" if a.backend=="both" else kind)
                     dest.mkdir(parents=True,exist_ok=True)
-                    save_historical_banks(dest/"historical_v1_v2_operators.npz",hb)
+                    save_operator_bank(dest/"functional_operator_matrices.npz",hb)
             for i,j in pair_indices(info.k,a.pairs):
                 pname=f"u{i+1}_u{j+1}"
                 folder=output/model/link/a.analysis_scale/pname
@@ -97,10 +97,11 @@ def run(a):
                     rows=[]
                     for phi in angles:
                         R=plane_rotation(info.k,i,j,float(phi))
-                        vals=local_metrics(banks[kind],R)
-                        if kind in historical: vals.update(historical_metrics(historical[kind],R))
-                        vals.update(sweep_metrics(model,link,R,xpoints,a.sweep_steps,
-                            a.sweep_radius,a.rectangle_step,a.analysis_scale,backend=backend))
+                        vals=evaluate_metrics(banks[kind],R,model,link,xpoints,
+                            a.sweep_steps,a.sweep_radius,a.rectangle_step,
+                            a.analysis_scale,backend=backend,
+                            operator_bank=op_banks.get(kind))
+                        vals={key:value for key,value in vals.items() if key in a.selected_metrics}
                         rows.append(dict(angle_deg=round(float(phi),8),**vals))
                     writerows(target/"metrics_by_angle.csv",rows)
                     summary=make_figures(rows,target,f"{model}/{link}/{kind} - {pname}")
@@ -111,14 +112,14 @@ def run(a):
                     summaries.extend(dict(model=model,wrapper=link,pair=pname,backend=kind,
                         scale=a.analysis_scale,**s) for s in summary)
                 settings=dict(model=model,wrapper=link,pair=pname,k=info.k,dx=info.dx,
-                    identifiable=info.identifiable,training=train_meta,**vars(a))
-                if historical:
-                    settings["historical_v1_v2"]={
+                    metric_registry={mid:METRICS[mid].name for mid in a.selected_metrics},identifiable=info.identifiable,training=train_meta,**vars(a))
+                if op_banks:
+                    settings["functional_operator_bank"]={
                         kind:dict(fisher_eigenvalues=hb.fisher_eigenvalues.tolist(),
-                            fisher_predictive_active_rank=original_predictive_rank(
+                            fisher_predictive_active_rank=operator_rank_diagnostic(
                                 hb.fisher_eigenvalues,
-                                relative_threshold=a.historical_active_relative_threshold,
-                                cumulative_energy=a.historical_active_cumulative_energy),
+                                relative_threshold=a.operator_active_relative_threshold,
+                                cumulative_energy=a.operator_active_cumulative_energy),
                             active_rank_is_diagnostic_only=True,
                             v1_operator_names=list(hb.names_v1),
                             v2_operator_names=list(hb.names_v2),
@@ -128,7 +129,7 @@ def run(a):
                             second_derivative_steps=hb.steps_second.tolist(),
                             fisher_coordinate_space="full theta (no active subspace truncation)",
                             logit_scale="sigmoid link inverse, otherwise raw generator as logit")
-                        for kind,hb in historical.items()}
+                        for kind,hb in op_banks.items()}
                 if a.backend=="both":
                     settings["metric_mse"]=plot_backend_comparison(both["analytic"],
                         both["neural"],folder,f"{model}/{link}/{pname}")
@@ -152,6 +153,8 @@ def run(a):
 def cli():
     p=argparse.ArgumentParser(description="Extensible toy functional-rotation benchmark")
     p.add_argument("--list-models",action="store_true",help="Print all registered toy models")
+    p.add_argument("--list-metrics",action="store_true",help="Print the M001.. metric registry")
+    p.add_argument("--metrics",nargs="+",default=["all"],help="M001 M005 ... or all")
     p.add_argument("--models",nargs="+",default=["T1","T2","T3","T4"],help="One, many, or all")
     p.add_argument("--wrappers",nargs="+",choices=("all",*WRAPPERS),default=["all"])
     p.add_argument("--backend",choices=("analytic","neural","both"),default="analytic")
@@ -164,16 +167,16 @@ def cli():
     p.add_argument("--nn-lr",type=float,default=.002)
     p.add_argument("--nn-batch-size",type=int,default=512)
     p.add_argument("--analysis-scale",choices=("raw","log","inverse-link"),default="raw")
-    p.add_argument("--no-historical",action="store_true",help="Skip v1/v2 Fisher functional operators (faster)")
-    p.add_argument("--historical-first-step-fraction",type=float,default=.02)
-    p.add_argument("--historical-second-step-fraction",type=float,default=.10)
-    p.add_argument("--historical-v1-min-relative-energy",type=float,default=1e-4)
-    p.add_argument("--historical-active-relative-threshold",type=float,default=.001)
-    p.add_argument("--historical-active-cumulative-energy",type=float,default=.995)
-    p.add_argument("--historical-v2-min-relative-energy",type=float,default=.01)
+    p.add_argument("--operator-bank",choices=("all","none"),default="all",help="Generic level, first-X and second-X operators")
+    p.add_argument("--x-first-step-fraction",type=float,default=.02)
+    p.add_argument("--x-second-step-fraction",type=float,default=.10)
+    p.add_argument("--operator-v1-min-relative-energy",type=float,default=1e-4)
+    p.add_argument("--operator-active-relative-threshold",type=float,default=.001)
+    p.add_argument("--operator-active-cumulative-energy",type=float,default=.995)
+    p.add_argument("--operator-v2-min-relative-energy",type=float,default=.01)
     p.add_argument("--pairs",default="first")
-    p.add_argument("--theta-samples",type=int,default=24)
-    p.add_argument("--x-samples",type=int,default=100)
+    p.add_argument("--u-points",type=int,default=24,help="U quadrature nodes, not individuals")
+    p.add_argument("--x-points",type=int,default=100,help="X quadrature nodes, not trials")
     p.add_argument("--x-mode",choices=("sobol","axis_sweeps"),default="sobol")
     p.add_argument("--sweep-steps",type=int,default=101)
     p.add_argument("--angle-min",type=float,default=-90)
@@ -187,7 +190,25 @@ def cli():
     if a.list_models:
         for n,m in MODELS.items():print(f"{n:<8} theta={m.k} X={m.dx} | {m.description}")
         return
-    if a.theta_samples<2 or a.x_samples<3 or a.sweep_steps<5 or a.angles<3:
+    if a.list_metrics:
+        for mid,spec in METRICS.items():
+            print(f"{mid}  {spec.name:<32}  {spec.description}")
+        return
+    if "all" in a.metrics:
+        if len(a.metrics)!=1:p.error("Do not combine all with numbered metric IDs")
+        a.selected_metrics=list(METRICS)
+    else:
+        unknown=[key for key in a.metrics if key not in METRICS]
+        if unknown:p.error(f"Unknown metric IDs: {unknown}. Use --list-metrics")
+        a.selected_metrics=list(dict.fromkeys(a.metrics))
+    a.operator_metric_ids=[metric_id(n) for n in (
+        "operator_v1_jd","operator_v2_jd","operator_v1_level",
+        "operator_v1_first","operator_v2_second_diagonal",
+        "operator_v2_second_mixed","operator_fisher_offdiag","operator_fisher_trace")]
+    if a.operator_bank=="none":
+        a.selected_metrics=[m for m in a.selected_metrics if m not in a.operator_metric_ids]
+    if not a.selected_metrics:p.error("No metric selected")
+    if a.u_points<2 or a.x_points<3 or a.sweep_steps<5 or a.angles<3:
         p.error("Need theta>=2, x>=3, sweep>=5, angles>=3")
     if not 0<a.sweep_radius<=.49 or not 0<a.rectangle_step<=.25:
         p.error("Invalid sweep radius or rectangle step")

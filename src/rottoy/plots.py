@@ -5,18 +5,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from .operators import rotated_derivatives
+from .metrics import METRICS,metric_id,metric_spec
 
-METRIC_ORDER=[
-"xu_group_l1","xu_energy_concentration","local_xu_l1",
-"grad_xcov_offdiag","grad_gram_offdiag","uu_offdiag","uu_diagonal",
-"sweep_affine","sweep_shape_min","sweep_rank1_min","sweep_curvature",
-"rectangle_uu","u_grad_energy","xu_total_energy",
-"x_gradient_energy","x_curvature_energy",
-"historical_v1_jd","historical_v2_jd",
-"historical_v1_level","historical_v1_first",
-"historical_v2_second_diagonal","historical_v2_second_mixed",
-"historical_fisher_offdiag","historical_fisher_trace"
-]
+METRIC_ORDER=list(METRICS)
 
 def make_figures(rows,directory:Path,title:str):
     directory.mkdir(parents=True,exist_ok=True)
@@ -29,7 +20,7 @@ def make_figures(rows,directory:Path,title:str):
     fig,ax=plt.subplots(figsize=(11,6.6),layout="constrained")
     im=ax.imshow(normalized,aspect="auto",cmap="viridis",origin="upper",vmin=0,vmax=1,
         extent=[xs[0]-(xs[1]-xs[0])/2,xs[-1]+(xs[1]-xs[0])/2,len(names)-.5,-.5])
-    ax.set_yticks(np.arange(len(names)));ax.set_yticklabels(names,fontsize=9)
+    ax.set_yticks(np.arange(len(names)));ax.set_yticklabels([f"{n}: {metric_spec(n).name}" for n in names],fontsize=8)
     ax.set_xticks(np.arange(np.ceil(xs[0]/15)*15,xs[-1]+1,15))
     ax.set_xlabel("Rotation angle (degrees)")
     ax.axvline(0,color="white",linewidth=1.2,linestyle="--",alpha=.85)
@@ -37,23 +28,23 @@ def make_figures(rows,directory:Path,title:str):
     fig.colorbar(im,ax=ax,label="Normalized per metric (constant row = 0.5)",shrink=.77)
     fig.savefig(directory/"metric_heatmap.png",dpi=145)
     plt.close(fig)
-    show=["xu_group_l1","grad_xcov_offdiag","uu_offdiag","uu_diagonal",
-          "sweep_affine","rectangle_uu"]
+    show=[metric_id(n) for n in ("xu_group_l1","grad_xcov_offdiag","uu_offdiag",
+          "uu_diagonal","sweep_affine","rectangle_uu")]
     fig,axes=plt.subplots(2,3,figsize=(12.5,7),layout="constrained")
     for ax,name in zip(axes.flat,show):
         if name in names:
             ax.plot(xs,data[names.index(name)],linewidth=2)
             ax.scatter([0],[float(rows[np.argmin(abs(xs))][name])],s=22,zorder=3)
         ax.axvline(0,color="gray",linewidth=.9,linestyle="--")
-        ax.grid(alpha=.2);ax.set_title(name,fontsize=10)
+        ax.grid(alpha=.2);ax.set_title(f"{name} {metric_spec(name).name}",fontsize=9)
         ax.set_xlabel("Rotation angle (degrees)");ax.set_ylabel("Raw metric")
     fig.suptitle(title+" | selected metric curves",fontweight="bold")
     fig.savefig(directory/"metric_curves.png",dpi=145)
     plt.close(fig)
-    if "historical_v1_jd" in names:
-        history=("historical_v1_jd","historical_v2_jd","historical_v1_level",
-                 "historical_v1_first","historical_v2_second_diagonal",
-                 "historical_v2_second_mixed","historical_fisher_offdiag")
+    if metric_id("operator_v1_jd") in names:
+        history=tuple(metric_id(n) for n in ("operator_v1_jd","operator_v2_jd","operator_v1_level",
+                 "operator_v1_first","operator_v2_second_diagonal",
+                 "operator_v2_second_mixed","operator_fisher_offdiag"))
         fig,ax=plt.subplots(figsize=(10,5.5),layout="constrained")
         for name in history:
             if name in names:
@@ -110,7 +101,7 @@ def plot_backend_comparison(analytic_rows,neural_rows,folder,title):
     ax.set_title(title+" | normalized absolute F - eta metric difference",fontsize=11)
     fig.colorbar(im,ax=ax,label="Absolute gap / analytic angle range",shrink=.8)
     fig.savefig(folder/"paired_error_heatmap.png",dpi=145);plt.close(fig)
-    show=["xu_group_l1","grad_xcov_offdiag","uu_offdiag","uu_diagonal","sweep_affine","rectangle_uu"]
+    show=[metric_id(n) for n in ("xu_group_l1","grad_xcov_offdiag","uu_offdiag","uu_diagonal","sweep_affine","rectangle_uu")]
     fig,axes=plt.subplots(2,3,figsize=(12.5,7),layout="constrained")
     for ax,name in zip(axes.flat,show):
         if name in names:
@@ -118,7 +109,7 @@ def plot_backend_comparison(analytic_rows,neural_rows,folder,title):
             ax.plot(xs,A[idx],label="analytic eta",lw=2)
             ax.plot(xs,F[idx],label="neural F",ls="--",lw=2)
         ax.axvline(0,color="gray",ls=":",lw=.8)
-        ax.set_title(name,fontsize=10);ax.set_xlabel("Rotation angle (degrees)")
+        ax.set_title(f"{name} {metric_spec(name).name}",fontsize=9);ax.set_xlabel("Rotation angle (degrees)")
         ax.grid(alpha=.2)
     axes.flat[0].legend(fontsize=8)
     fig.suptitle(title+" | corresponding metrics")

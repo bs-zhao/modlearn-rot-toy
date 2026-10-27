@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import importlib
 import pkgutil
+import re
 import numpy as np
 import torch
 
@@ -19,7 +20,7 @@ WRAPPERS = ("identity", "sigmoid", "square")
 
 def register_model(name,k,dx,description,identifiable=True):
     def deco(fn):
-        if not name.isidentifier() or name in MODELS or k<2 or dx<1:
+        if not re.fullmatch(r"T[1-9][0-9]*",name) or name in MODELS or k<2 or dx<1:
             raise ValueError(f"Invalid or duplicate model name/dimensions: {name}")
         MODELS[name]=ToyModel(name,k,dx,description,identifiable)
         _GENERATORS[name]=fn
@@ -65,3 +66,4 @@ def plane_rotation(k,i,j,angle_deg):
     return r
 
 discover_models()
+MODELS=dict(sorted(MODELS.items(),key=lambda pair:int(pair[0][1:])))

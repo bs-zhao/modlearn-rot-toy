@@ -1,28 +1,57 @@
-"""Representative functional indicators. Some are deliberate negative controls."""
+"""Unified, append-only numeric metric registry (M001, M002, ...)."""
+from dataclasses import dataclass
+@dataclass(frozen=True)
+class MetricSpec:
+    id: str
+    name: str
+    description: str
+
+METRICS = {}
+METRIC_NAMES = {}
+def register_metric(name, description):
+    """Append a metric without hand-assigning a new ID or adding a special CLI."""
+    if name in METRIC_NAMES:
+        raise ValueError("Duplicate metric: "+name)
+    identifier=f"M{len(METRICS)+1:03d}"
+    spec=MetricSpec(identifier,name,description)
+    METRICS[identifier]=spec
+    METRIC_NAMES[name]=identifier
+    return identifier
+def metric_id(name):
+    return METRIC_NAMES[name]
+def metric_spec(identifier):
+    return METRICS[identifier]
+def _numbered(values):
+    return {metric_id(k):float(v) for k,v in values.items()}
+register_metric("xu_group_l1","XU RMS group L1")
+register_metric("xu_energy_concentration","XU energy concentration")
+register_metric("local_xu_l1","Local XU normalized L1")
+register_metric("grad_xcov_offdiag","X-conditional U-gradient covariance JD")
+register_metric("grad_gram_offdiag","U gradient Gram JD")
+register_metric("uu_offdiag","UU offdiagonal Hessian energy")
+register_metric("uu_diagonal","UU diagonal Hessian energy")
+register_metric("u_grad_energy","U gradient total energy (rotation invariant)")
+register_metric("xu_total_energy","XU total energy (rotation invariant)")
+register_metric("x_gradient_energy","X gradient energy (rotation invariant)")
+register_metric("x_curvature_energy","XX curvature energy (rotation invariant)")
+register_metric("sweep_affine","Global U sweep affine residual")
+register_metric("sweep_shape_min","U sweep minimum response shape change")
+register_metric("sweep_rank1_min","U sweep minimum rank-one error")
+register_metric("sweep_curvature","Global U sweep second-difference curvature")
+register_metric("rectangle_uu","Finite rectangle UU interaction")
+register_metric("operator_v1_jd","v1: level plus first-X function operator JD")
+register_metric("operator_v2_jd","v2: level plus first- and second-X function operator JD")
+register_metric("operator_v1_level","v1: level operator JD")
+register_metric("operator_v1_first","v1: first-X operator JD")
+register_metric("operator_v2_second_diagonal","v2: diagonal second-X operator JD")
+register_metric("operator_v2_second_mixed","v2: mixed second-X operator JD")
+register_metric("operator_fisher_offdiag","Logistic-weighted gradient information offdiagonal")
+register_metric("operator_fisher_trace","Logistic-weighted gradient information trace (invariant)")
 import numpy as np
 import torch
 from .models import evaluate
-from .operators import rotated_derivatives
+from .operators import rotated_derivatives, operator_family_metrics
 
-METRICS={
-"xu_group_l1":"RMS group XU sparsity",
-"xu_energy_concentration":"Quadratic energy concentration",
-"local_xu_l1":"Per-location normalized row L1, C2 negative control",
-"grad_xcov_offdiag":"U-gradient stimulus covariance offdiagonal",
-"grad_gram_offdiag":"U gradient Gram offdiagonal",
-"uu_offdiag":"UU mixed-curvature fraction",
-"uu_diagonal":"UU self-curvature fraction",
-"u_grad_energy":"Orthogonally invariant U gradient energy",
-"xu_total_energy":"Orthogonally invariant XU squared energy",
-"x_gradient_energy":"X gradient energy invariant control",
-"x_curvature_energy":"XX Hessian energy invariant control",
-"sweep_affine":"Best affine U-sweep fit residual",
-"sweep_shape_min":"Minimum normalized response-shape variation",
-"sweep_rank1_min":"Minimum rank-one sweep matrix approximation error",
-"sweep_curvature":"Second finite difference sweep curvature",
-"rectangle_uu":"Finite rectangle UU interaction squared"
-}
-INVARIANTS={"u_grad_energy","xu_total_energy","x_gradient_energy","x_curvature_energy"}
 
 def _offdiag_sq(a):
     return np.sum(a*a)-np.sum(np.diag(a)**2)
@@ -46,7 +75,7 @@ def local_metrics(bank,r,eps=1e-12):
     gg=float(max(0,_offdiag_sq(gram))/gn2) if gn2>eps else 0.
     HS=float(np.mean(np.sum(hu*hu,axis=(-1,-2))))
     HD=float(np.mean(np.sum(np.diagonal(hu,axis1=-2,axis2=-1)**2,axis=-1)))
-    return {
+    return _numbered({
         "xu_group_l1":group_l1,
         "xu_energy_concentration":concentrate,
         "local_xu_l1":loc_l1,
@@ -58,7 +87,7 @@ def local_metrics(bank,r,eps=1e-12):
         "xu_total_energy":float(np.mean(np.sum(hxu*hxu,axis=(-1,-2)))),
         "x_gradient_energy":float(np.mean(np.sum(bank.gx**2,axis=-1))),
         "x_curvature_energy":float(np.mean(np.sum(bank.hxx**2,axis=(-1,-2))))
-    }
+    })
 
 def _eval(model,link,x,theta,scale="raw",backend=None):
     with torch.no_grad():
@@ -102,10 +131,21 @@ def sweep_metrics(model,link,r,x_bank,sweep_steps,sweep_radius,rect_step,analysi
                 out.append(_eval(model,link,x_bank,np.broadcast_to(theta,(len(x_bank),k)),analysis_scale,backend))
             diff=(out[0]-out[1]-out[2]+out[3])/(4*rect_step**2)
             rect.append(float(np.mean(diff**2)))
-    return {
+    return _numbered({
         "sweep_affine":float(np.mean(affine)),
         "sweep_shape_min":float(min(shape)),
         "sweep_rank1_min":float(min(rankerr)),
         "sweep_curvature":float(np.mean(curv)),
         "rectangle_uu":float(np.mean(rect)),
-    }
+    })
+
+
+def evaluate_metrics(bank,rotation,model,wrapper,x_nodes,sweep_steps,sweep_radius,
+                     rectangle_step,analysis_scale="raw",backend=None,operator_bank=None):
+    """Sole public per-angle metric evaluation for all toy models and backends."""
+    values=local_metrics(bank,rotation)
+    values.update(sweep_metrics(model,wrapper,rotation,x_nodes,sweep_steps,
+                               sweep_radius,rectangle_step,analysis_scale,backend))
+    if operator_bank is not None:
+        values.update(_numbered(operator_family_metrics(operator_bank,rotation)))
+    return values

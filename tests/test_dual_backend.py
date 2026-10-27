@@ -10,6 +10,7 @@ from rottoy.backends import AnalyticBackend,train_neural,load_neural,checkpoint_
 from rottoy.operators import derivative_bank
 from rottoy.metrics import local_metrics,sweep_metrics
 from rottoy.__main__ import resolve_models
+from rottoy.metrics import metric_id
 
 def main():
     assert "T7" in MODELS
@@ -32,7 +33,7 @@ def main():
         for bank in banks:
             assert bank.hxtheta.shape==(4,8,1,2)
             assert np.isfinite(bank.gtheta).all()
-            assert "xu_group_l1" in local_metrics(bank,plane_rotation(2,0,1,45))
+            assert metric_id("xu_group_l1") in local_metrics(bank,plane_rotation(2,0,1,45))
         for backend in (a,f):
             m=sweep_metrics("T7","sigmoid",np.eye(2),xp,7,.35,.2,backend=backend)
             assert np.isfinite(list(m.values())).all()

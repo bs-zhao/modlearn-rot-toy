@@ -7,7 +7,7 @@ import torch
 from rottoy.models import MODELS,WRAPPERS,evaluate,plane_rotation
 from rottoy.sampling import paired_grid
 from rottoy.operators import derivative_bank,rotated_derivatives
-from rottoy.metrics import local_metrics,sweep_metrics
+from rottoy.metrics import local_metrics,sweep_metrics,metric_id
 
 def bank(name,wrapper="identity",scale="raw"):
     info=MODELS[name]
@@ -28,25 +28,25 @@ def tests():
     b=bank("T3")
     m0=local_metrics(b,plane_rotation(2,0,1,0))
     m45=local_metrics(b,plane_rotation(2,0,1,45))
-    assert abs(m0["uu_offdiag"]-1)<1e-12
-    assert m45["uu_offdiag"]<1e-12
-    assert m0["uu_diagonal"]<1e-12 and m45["uu_diagonal"]>.999
+    assert abs(m0[metric_id("uu_offdiag")]-1)<1e-12
+    assert m45[metric_id("uu_offdiag")]<1e-12
+    assert m0[metric_id("uu_diagonal")]<1e-12 and m45[metric_id("uu_diagonal")]>.999
     X=np.column_stack((np.linspace(.01,.99,35),np.linspace(.99,.01,35)))
     s0=sweep_metrics("T3","identity",plane_rotation(2,0,1,0),X,31,.4,.2)
     s45=sweep_metrics("T3","identity",plane_rotation(2,0,1,45),X,31,.4,.2)
-    assert s0["sweep_affine"]<1e-22 and s45["sweep_affine"]>1e-6
+    assert s0[metric_id("sweep_affine")]<1e-22 and s45[metric_id("sweep_affine")]>1e-6
     b=bank("T1","identity","log")
     c0=local_metrics(b,plane_rotation(2,0,1,0))
     c45=local_metrics(b,plane_rotation(2,0,1,45))
-    assert c0["grad_xcov_offdiag"]<1e-12
-    assert abs(c45["grad_xcov_offdiag"]-.5)<1e-9
+    assert c0[metric_id("grad_xcov_offdiag")]<1e-12
+    assert abs(c45[metric_id("grad_xcov_offdiag")]-.5)<1e-9
     b=bank("T3","square")
     a=local_metrics(b,plane_rotation(2,0,1,0))
     c=local_metrics(b,plane_rotation(2,0,1,37))
     for n in ("u_grad_energy","xu_total_energy","x_gradient_energy","x_curvature_energy"):
         assert np.isclose(a[n],c[n],atol=1e-10,rtol=1e-10),(n,a[n],c[n])
     assert np.linalg.matrix_rank(bank("T4").gtheta[0],tol=1e-9)==3
-    assert np.linalg.matrix_rank(bank("T4ID").gtheta[0],tol=1e-9)==4
+    assert np.linalg.matrix_rank(bank("T8").gtheta[0],tol=1e-9)==4
     r=plane_rotation(2,0,1,32)
     x0=torch.tensor([.36,.61],dtype=torch.float64)
     theta0=torch.tensor([.47,.58],dtype=torch.float64)
