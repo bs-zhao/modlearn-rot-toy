@@ -4,8 +4,10 @@
 
 ## 详细参考文档
 
-- **[全部 T 模型：生成公式、每个参数/X 的范围、基础 η 和六种 Y 版本的理论上下界](catalog/README_TOY_MODELS.md)**
-- **[全部 24 项 M 指标：数学公式、意义、近似算法、局限与正交不变量](catalog/README_METRICS.md)**
+原有两份参考 README 已使用中文撰写；现在额外提供名称明确的 `_ZH.md` 中文版入口，保留原文件不变。
+
+- **[Toy 模型目录 · 中文版](catalog/README_TOY_MODELS_ZH.md)**：T1–T11 公式、参数及 X 范围、六种 Y 变换和理论值域。原文件：[README_TOY_MODELS.md](catalog/README_TOY_MODELS.md)。
+- **[功能指标目录 · 中文版](catalog/README_METRICS_ZH.md)**：M001–M024 的数学定义、实现、解释、限制与旋转性质。原文件：[README_METRICS.md](catalog/README_METRICS.md)。
 
 新增 T/M 编号时，文档总表与实际代码一一对应；测试会检查覆盖情况。
 
@@ -31,7 +33,9 @@ src/rottoy/
   __main__.py           # 包入口
 catalog/
   README_TOY_MODELS.md
+  README_TOY_MODELS_ZH.md
   README_METRICS.md
+  README_METRICS_ZH.md
 tests/
   test_core.py          # 数学检验、参数/X/Y 范围、算子一致性
   test_e2e.py           # 解析/神经双后端完整小规模测试
